@@ -1,16 +1,51 @@
-const { div, textarea, button, p } = van.tags;
+const { div, textarea, button, p, hr } = van.tags;
 
 const prompt = van.state('');
 const response = van.state('');
 const isLoading = van.state(false);
-const timings = van.state(null);
+const modelName = van.state('');
+const resultData = van.state(null);
+const localStorageDisplay = van.state('');
+
+const showResults = () => {
+  const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
+  localStorageDisplay.val = JSON.stringify(data, undefined, 2);
+};
+
+const addResult = (resultJson) => {
+  const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
+  const newData = JSON.parse(resultJson);
+  existingData.push(newData);
+  localStorage.setItem('llmResults', JSON.stringify(existingData));
+  showResults();
+};
+
+const handleAddClick = () => {
+  if (resultData.val) {
+    addResult(resultData.val);
+  }
+};
+
+const getModel = async () => {
+  try {
+    const fetchResponse = await fetch('http://localhost:8080/v1/models');
+    const data = await fetchResponse.json();
+    if (data.models && data.models[0] && data.models[0].name) {
+      const fullPath = data.models[0].name;
+      const fileName = fullPath.split('/').pop();
+      modelName.val = fileName;
+    }
+  } catch (error) {
+    console.error('Error fetching model name:', error);
+  }
+};
 
 const sendRequest = async () => {
   if (!prompt.val.trim() || isLoading.val) return;
 
   isLoading.val = true;
   response.val = '';
-  timings.val = '';
+  resultData.val = '';
 
   try {
     const fetchResponse = await fetch('http://localhost:8080/v1/chat/completions', {
@@ -38,7 +73,6 @@ const sendRequest = async () => {
       return;
     }
 
-    // シンプルなSSEパーサー関数
     function parseSSEStream(stream, onEvent) {
       const reader = stream.getReader();
       const decoder = new TextDecoder();
@@ -67,7 +101,6 @@ const sendRequest = async () => {
       });
     }
 
-    // 使用例
     await parseSSEStream(fetchResponse.body, (data) => {
       try {
         const json = JSON.parse(data);
@@ -75,7 +108,12 @@ const sendRequest = async () => {
           response.val += json.choices[0].delta.content;
         }
         if (json.timings) {
-          timings.val = JSON.stringify(json.timings, undefined, 2);
+          const enhancedResult = {
+            model: modelName.val,
+            prompt: prompt.val,
+            ...json.timings
+          };
+          resultData.val = JSON.stringify(enhancedResult, undefined, 2);
         }
       } catch (error) {
         console.error('Parse error:', error);
@@ -90,46 +128,95 @@ const sendRequest = async () => {
 
 const App = () => {
   return div(
-    { class: 'grid grid-cols-1 gap-4' },
+    { class: '' },
 
     div(
-      { class: '' },
-      textarea(
-        {
-          value: () => prompt.val,
-          oninput: (e) => prompt.val = e.target.value,
-          placeholder: 'Enter prompt...',
-          class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
-          rows: 4,
-          disabled: () => isLoading.val
-        }
+      { class: 'max-w-4xl mx-auto grid grid-cols-2 gap-4' },
+
+      div(
+        { class: 'col-span-2' },
+        textarea(
+          {
+            value: () => localStorageDisplay.val,
+            readonly: true,
+            class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
+            rows: 16,
+          }
+        ),
+      ),
+
+      div(
+        button(
+          {
+            onclick: handleAddClick,
+            class: 'w-full py-2 rounded-md font-medium bg-violet-600 hover:bg-violet-700 text-neutral-100 cursor-pointer'
+          },
+          'Update'
+        )
+      ),
+
+      div(
+        button(
+          {
+            onclick: handleAddClick,
+            class: 'w-full py-2 rounded-md font-medium bg-indigo-600 hover:bg-indigo-700 text-neutral-100 cursor-pointer'
+          },
+          'Add'
+        )
       ),
     ),
 
+    hr({ class: 'border border-neutral-600 my-4' }),
+
     div(
-      button(
-        {
-          onclick: sendRequest,
-          disabled: () => isLoading.val || !prompt.val.trim(),
-          class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim()
-              ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-              : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
-            }`
-        },
-        () => isLoading.val ? 'Sending...' : 'Send'
+      { class: 'max-w-4xl mx-auto grid grid-cols-1 gap-4' },
+
+      div(
+        { class: '' },
+        () => modelName.val ? `🤖 ${modelName.val}` : 'The server is not running'
+      ),
+
+      div(
+        { class: '' },
+        textarea(
+          {
+            value: () => prompt.val,
+            oninput: (e) => prompt.val = e.target.value,
+            placeholder: 'Enter prompt...',
+            class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
+            rows: 4,
+            disabled: () => isLoading.val
+          }
+        ),
+      ),
+
+      div(
+        button(
+          {
+            onclick: sendRequest,
+            disabled: () => isLoading.val || !prompt.val.trim(),
+            class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim()
+                ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+              }`
+          },
+          () => isLoading.val ? 'Sending...' : 'Send'
+        )
+      ),
+
+      div(
+        { class: 'whitespace-pre-wrap' },
+        () => response.val || ''
+      ),
+
+      div(
+        { class: 'whitespace-pre-wrap text-amber-200' },
+        () => resultData.val || ''
       )
-    ),
-
-    div(
-      { class: 'whitespace-pre-wrap' },
-      () => response.val || ''
-    ),
-
-    div(
-      { class: 'whitespace-pre-wrap text-amber-200' },
-      () => timings.val || ''
     )
   );
 };
 
+showResults();
+getModel();
 van.add(document.getElementById('app'), App());
