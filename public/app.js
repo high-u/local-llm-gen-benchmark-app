@@ -6,6 +6,7 @@ const isLoading = van.state(false);
 const modelName = van.state('');
 const resultData = van.state(null);
 const localStorageDisplay = van.state('');
+const isJsonError = van.state(false);
 
 const showResults = () => {
   const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
@@ -15,14 +16,38 @@ const showResults = () => {
 const addResult = (resultJson) => {
   const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
   const newData = JSON.parse(resultJson);
-  existingData.push(newData);
-  localStorage.setItem('llmResults', JSON.stringify(existingData));
+  const updatedData = [newData, ...existingData];
+  localStorage.setItem('llmResults', JSON.stringify(updatedData));
   showResults();
 };
 
 const handleAddClick = () => {
   if (resultData.val) {
     addResult(resultData.val);
+  }
+};
+
+const handleUpdateClick = () => {
+  const textValue = localStorageDisplay.val.trim();
+  
+  if (textValue === '') {
+    localStorage.setItem('llmResults', JSON.stringify([]));
+    localStorageDisplay.val = JSON.stringify([], undefined, 2);
+    isJsonError.val = false;
+    return;
+  }
+  
+  try {
+    const parsedData = JSON.parse(textValue);
+    if (Array.isArray(parsedData)) {
+      localStorage.setItem('llmResults', JSON.stringify(parsedData));
+      localStorageDisplay.val = JSON.stringify(parsedData, undefined, 2);
+      isJsonError.val = false;
+    } else {
+      isJsonError.val = true;
+    }
+  } catch (error) {
+    isJsonError.val = true;
   }
 };
 
@@ -128,18 +153,22 @@ const sendRequest = async () => {
 
 const App = () => {
   return div(
-    { class: '' },
+    { class: 'min-h-screen text-neutral-200 font-mono bg-neutral-900' },
 
     div(
-      { class: 'max-w-4xl mx-auto grid grid-cols-2 gap-4' },
+      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-2 gap-4' },
 
       div(
         { class: 'col-span-2' },
         textarea(
           {
             value: () => localStorageDisplay.val,
-            readonly: true,
-            class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
+            oninput: (e) => {
+              localStorageDisplay.val = e.target.value;
+              isJsonError.val = false;
+            },
+            spellcheck: false,
+            class: () => `w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500 ${isJsonError.val ? 'text-rose-400' : ''}`,
             rows: 16,
           }
         ),
@@ -148,7 +177,7 @@ const App = () => {
       div(
         button(
           {
-            onclick: handleAddClick,
+            onclick: handleUpdateClick,
             class: 'w-full py-2 rounded-md font-medium bg-violet-600 hover:bg-violet-700 text-neutral-100 cursor-pointer'
           },
           'Update'
@@ -166,10 +195,10 @@ const App = () => {
       ),
     ),
 
-    hr({ class: 'border border-neutral-600 my-4' }),
+    hr({ class: 'border border-neutral-700' }),
 
     div(
-      { class: 'max-w-4xl mx-auto grid grid-cols-1 gap-4' },
+      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-1 gap-4' },
 
       div(
         { class: '' },
@@ -183,6 +212,7 @@ const App = () => {
             value: () => prompt.val,
             oninput: (e) => prompt.val = e.target.value,
             placeholder: 'Enter prompt...',
+            spellcheck: false,
             class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
             rows: 4,
             disabled: () => isLoading.val
