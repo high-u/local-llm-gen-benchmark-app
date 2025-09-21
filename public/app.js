@@ -64,7 +64,6 @@ const handleGetModelClick = async () => {
   resultData.val = '';
   await getModel();
   
-  // Localstorageから保存したプロンプトを読み込んでテキストエリアに設定
   const savedPrompt = localStorage.getItem('savedPrompt');
   if (savedPrompt) {
     prompt.val = savedPrompt;
