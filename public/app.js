@@ -7,6 +7,7 @@ const modelName = van.state('');
 const resultData = van.state(null);
 const localStorageDisplay = van.state('');
 const isJsonError = van.state(false);
+const isGetModelLoading = van.state(false);
 
 const showResults = () => {
   const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
@@ -51,6 +52,12 @@ const handleUpdateClick = () => {
   }
 };
 
+const handleGetModelClick = async () => {
+  isGetModelLoading.val = true;
+  await getModel();
+  isGetModelLoading.val = false;
+};
+
 const getModel = async () => {
   try {
     const fetchResponse = await fetch('http://localhost:8080/v1/models');
@@ -59,13 +66,19 @@ const getModel = async () => {
       const fullPath = data.models[0].name;
       const fileName = fullPath.split('/').pop();
       modelName.val = fileName;
+    } else {
+      modelName.val = '';
     }
   } catch (error) {
     console.error('Error fetching model name:', error);
+    modelName.val = '';
   }
 };
 
 const sendRequest = async () => {
+
+  localStorage.setItem('savedPrompt', prompt.val);
+  
   if (!prompt.val.trim() || isLoading.val) return;
 
   isLoading.val = true;
@@ -89,8 +102,6 @@ const sendRequest = async () => {
         timings_per_token: true
       })
     });
-
-    console.log('Fetch response:', fetchResponse);
 
     if (!fetchResponse.ok) {
       response.val = `HTTP error! status: ${fetchResponse.status}`;
@@ -131,6 +142,7 @@ const sendRequest = async () => {
         const json = JSON.parse(data);
         if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
           response.val += json.choices[0].delta.content;
+          window.scrollTo(0, document.body.scrollHeight);
         }
         if (json.timings) {
           const enhancedResult = {
@@ -190,7 +202,7 @@ const App = () => {
             onclick: handleAddClick,
             class: 'w-full py-2 rounded-md font-medium bg-indigo-600 hover:bg-indigo-700 text-neutral-100 cursor-pointer'
           },
-          'Add'
+          'Add result'
         )
       ),
     ),
@@ -198,15 +210,15 @@ const App = () => {
     hr({ class: 'border border-neutral-700' }),
 
     div(
-      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-1 gap-4' },
+      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-2 gap-4' },
 
       div(
-        { class: '' },
+        { class: 'col-span-2' },
         () => modelName.val ? `🤖 ${modelName.val}` : 'The server is not running'
       ),
 
       div(
-        { class: '' },
+        { class: 'col-span-2' },
         textarea(
           {
             value: () => prompt.val,
@@ -214,7 +226,7 @@ const App = () => {
             placeholder: 'Enter prompt...',
             spellcheck: false,
             class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
-            rows: 4,
+            rows: 16,
             disabled: () => isLoading.val
           }
         ),
@@ -223,21 +235,43 @@ const App = () => {
       div(
         button(
           {
-            onclick: sendRequest,
-            disabled: () => isLoading.val || !prompt.val.trim(),
-            class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim()
+            onclick: handleGetModelClick,
+            disabled: () => isGetModelLoading.val,
+            class: () => `w-full py-2 rounded-md font-medium ${isGetModelLoading.val
                 ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+                : 'bg-lime-600 hover:bg-lime-700 text-neutral-100 cursor-pointer'
               }`
           },
-          () => isLoading.val ? 'Sending...' : 'Send'
+          () => isGetModelLoading.val ? 'Getting...' : 'Get model'
         )
       ),
+
+      div(
+          button(
+            {
+              onclick: sendRequest,
+              disabled: () => isLoading.val || !prompt.val.trim() || !modelName.val,
+              class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim() || !modelName.val
+                  ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                  : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+                }`
+            },
+            () => isLoading.val ? 'Sending...' : 'Send'
+          )
+      ),
+    ),
+
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
 
       div(
         { class: 'whitespace-pre-wrap' },
         () => response.val || ''
       ),
+    ),
+
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
 
       div(
         { class: 'whitespace-pre-wrap text-amber-200' },
@@ -246,6 +280,9 @@ const App = () => {
     )
   );
 };
+
+const savedPrompt = localStorage.getItem('savedPrompt') || '';
+prompt.val = savedPrompt;
 
 showResults();
 getModel();
