@@ -142,6 +142,7 @@ const sendRequest = async () => {
         const json = JSON.parse(data);
         if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
           response.val += json.choices[0].delta.content;
+          window.scrollTo(0, document.body.scrollHeight);
         }
         if (json.timings) {
           const enhancedResult = {
@@ -267,6 +268,10 @@ const App = () => {
         { class: 'whitespace-pre-wrap' },
         () => response.val || ''
       ),
+    ),
+
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
 
       div(
         { class: 'whitespace-pre-wrap text-amber-200' },
