@@ -52,12 +52,20 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja -
 llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q6_K_L --jinja --ctx-size 32768
 ```
 
-#### aquif-ai/aquif-3-moe-17B-A2.8B-Think
+#### google/gemma-3-12b-it
 
-- bailingmoe.context_length u32: `32,768`
+- gemma3.context_length u32: `131,072`
 
 ```bash
-llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-GGUF:Q4_K_M --jinja --ctx-size 32768
+llama-server -hf unsloth/gemma-3-12b-it-GGUF:Q6_K_XL --jinja --ctx-size 32768
+```
+
+#### Qwen/Qwen3-14B
+
+- qwen3.context_length u32: `40,960`
+
+```bash
+llama-server -hf Qwen/Qwen3-14B-GGUF:Q5_K_M --jinja --ctx-size 32768
 ```
 
 #### openai/gpt-oss-20b
@@ -77,32 +85,6 @@ llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --j
 ```
 
 ### over VRAM (MoE)
-
-#### aquif-ai/aquif-3-moe-17B-A2.8B-Think
-
-- bailingmoe.context_length u32: `32,768`
-- bailingmoe.block_count u32: `28`
-- bailingmoe.expert_used_count u32: `6`
-- bailingmoe.expert_count u32: `64`
-
-```bash
-llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 20
-```
-
-"???????????????" としか返って来ない。
-
-#### baidu/ERNIE-4.5-21B-A3B-Thinking
-
-- ernie4_5-moe.context_length u32: `131,072`
-- ernie4_5-moe.block_count u32: `28`
-- ernie4_5-moe.expert_used_count u32: `6`
-- ernie4_5-moe.expert_count u32: `64`
-
-```bash
-llama-server -hf unsloth/ERNIE-4.5-21B-A3B-Thinking-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 14
-```
-
-それっぽい内容は返って来ているが終わらない。
 
 #### DavidAU/Qwen3-30B-A1.5B-High-Speed
 
@@ -143,10 +125,6 @@ llama-server -hf unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF:Q4_K_M --jinja --ct
 - glm4moe.block_count u32: `47`
 - glm4moe.expert_used_count u32: `8`
 - glm4moe.expert_count u32: `128`
-
-```bash
-llama-server -hf unsloth/GLM-4.5-Air-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-cpu-moe 43
-```
 
 ```bash
 llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 42
