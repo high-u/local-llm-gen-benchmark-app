@@ -66,6 +66,10 @@ const handleGetModelClick = async () => {
   isGetModelLoading.val = false;
 };
 
+const savePrompt = () => {
+  localStorage.setItem('savedPrompt', prompt.val);
+};
+
 const getModel = async () => {
   try {
     const fetchResponse = await fetch('http://localhost:8080/v1/models');
@@ -84,9 +88,6 @@ const getModel = async () => {
 };
 
 const sendRequest = async () => {
-
-  localStorage.setItem('savedPrompt', prompt.val);
-  
   if (!prompt.val.trim() || isLoading.val) return;
 
   isLoading.val = true;
@@ -230,15 +231,15 @@ const App = () => {
     hr({ class: 'border border-neutral-700' }),
 
     div(
-      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-2 gap-4' },
+      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-3 gap-4' },
 
       div(
-        { class: 'col-span-2' },
+        { class: 'col-span-3' },
         () => modelName.val ? `🤖 ${modelName.val}` : 'The server is not running'
       ),
 
       div(
-        { class: 'col-span-2' },
+        { class: 'col-span-3' },
         textarea(
           {
             value: () => prompt.val,
@@ -267,13 +268,23 @@ const App = () => {
       ),
 
       div(
+        button(
+          {
+            onclick: savePrompt,
+            class: 'w-full py-2 rounded-md font-medium bg-yellow-600 hover:bg-yellow-700 text-neutral-100 cursor-pointer'
+          },
+          'Save prompt'
+        )
+      ),
+
+      div(
           button(
             {
               onclick: sendRequest,
               disabled: () => isLoading.val || !prompt.val.trim() || !modelName.val,
               class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim() || !modelName.val
                   ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                  : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+                  : 'bg-orange-600 hover:bg-orange-700 text-neutral-100 cursor-pointer'
                 }`
             },
             () => isLoading.val ? 'Sending...' : 'Send'
