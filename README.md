@@ -168,7 +168,7 @@ llama-server -hf unsloth/GLM-4.5-Air-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-cp
 - gpt-oss.expert_used_count u32: `4`
 
 ```bash
-llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --temp 0.8 --top-k 40 --top-p 0.8 --min-p 0.05 --ctx-size 32768 --n-cpu-moe 29
+llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --n-cpu-moe 29
 ```
 
 #### Qwen/Qwen3-235B-A22B-Instruct-2507
