@@ -78,7 +78,7 @@ llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --j
 
 ### over VRAM (MoE)
 
-#### aquif-ai/aquif-3-moe-17B-A2.8B
+#### aquif-ai/aquif-3-moe-17B-A2.8B-Think
 
 - bailingmoe.context_length u32: `32,768`
 - bailingmoe.block_count u32: `28`
@@ -86,8 +86,10 @@ llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --j
 - bailingmoe.expert_count u32: `64`
 
 ```bash
-llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 10
+llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 20
 ```
+
+"???????????????" としか返って来ない。
 
 #### baidu/ERNIE-4.5-21B-A3B-Thinking
 
@@ -100,6 +102,8 @@ llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-GGUF:Q8_0 --jinja -
 llama-server -hf unsloth/ERNIE-4.5-21B-A3B-Thinking-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 14
 ```
 
+それっぽい内容は返って来ているが終わらない。
+
 #### DavidAU/Qwen3-30B-A1.5B-High-Speed
 
 - qwen3moe.context_length u32: `65,536`
@@ -108,7 +112,7 @@ llama-server -hf unsloth/ERNIE-4.5-21B-A3B-Thinking-GGUF:Q8_0 --jinja --ctx-size
 - qwen3moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:Q6_K --jinja --ctx-size 32768 --n-cpu-moe 28
+llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:Q6_K --jinja --ctx-size 32768 --n-cpu-moe 26
 ```
 
 #### Qwen/Qwen3-30B-A3B-Instruct-2507
@@ -119,7 +123,7 @@ llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:Q6_
 - qwen3moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 32
+llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
 ```
 
 #### meta-llama/Llama-4-Scout-17B-16E-Instruct
@@ -142,6 +146,14 @@ llama-server -hf unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF:Q4_K_M --jinja --ct
 
 ```bash
 llama-server -hf unsloth/GLM-4.5-Air-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-cpu-moe 43
+```
+
+```bash
+llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 42
+```
+
+```bash
+llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ2_M --jinja --ctx-size 32768 --n-cpu-moe 40
 ```
 
 #### openai/gpt-oss-120b
