@@ -7,6 +7,7 @@ const modelName = van.state('');
 const resultData = van.state(null);
 const localStorageDisplay = van.state('');
 const isJsonError = van.state(false);
+const isGetModelLoading = van.state(false);
 
 const showResults = () => {
   const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
@@ -51,6 +52,12 @@ const handleUpdateClick = () => {
   }
 };
 
+const handleGetModelClick = async () => {
+  isGetModelLoading.val = true;
+  await getModel();
+  isGetModelLoading.val = false;
+};
+
 const getModel = async () => {
   try {
     const fetchResponse = await fetch('http://localhost:8080/v1/models');
@@ -59,9 +66,12 @@ const getModel = async () => {
       const fullPath = data.models[0].name;
       const fileName = fullPath.split('/').pop();
       modelName.val = fileName;
+    } else {
+      modelName.val = '';
     }
   } catch (error) {
     console.error('Error fetching model name:', error);
+    modelName.val = '';
   }
 };
 
@@ -199,15 +209,15 @@ const App = () => {
     hr({ class: 'border border-neutral-700' }),
 
     div(
-      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-1 gap-4' },
+      { class: 'py-8 max-w-4xl mx-auto grid grid-cols-2 gap-4' },
 
       div(
-        { class: '' },
+        { class: 'col-span-2' },
         () => modelName.val ? `🤖 ${modelName.val}` : 'The server is not running'
       ),
 
       div(
-        { class: '' },
+        { class: 'col-span-2' },
         textarea(
           {
             value: () => prompt.val,
@@ -224,16 +234,34 @@ const App = () => {
       div(
         button(
           {
-            onclick: sendRequest,
-            disabled: () => isLoading.val || !prompt.val.trim(),
-            class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim()
+            onclick: handleGetModelClick,
+            disabled: () => isGetModelLoading.val,
+            class: () => `w-full py-2 rounded-md font-medium ${isGetModelLoading.val
                 ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+                : 'bg-lime-600 hover:bg-lime-700 text-neutral-100 cursor-pointer'
               }`
           },
-          () => isLoading.val ? 'Sending...' : 'Send'
+          () => isGetModelLoading.val ? 'Getting...' : 'Get model'
         )
       ),
+
+      div(
+          button(
+            {
+              onclick: sendRequest,
+              disabled: () => isLoading.val || !prompt.val.trim() || !modelName.val,
+              class: () => `w-full py-2 rounded-md font-medium ${isLoading.val || !prompt.val.trim() || !modelName.val
+                  ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                  : 'bg-amber-600 hover:bg-amber-700 text-neutral-100 cursor-pointer'
+                }`
+            },
+            () => isLoading.val ? 'Sending...' : 'Send'
+          )
+      ),
+    ),
+
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
 
       div(
         { class: 'whitespace-pre-wrap' },
