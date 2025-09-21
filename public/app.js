@@ -17,8 +17,10 @@ const showResults = () => {
 
 const addResult = (resultJson) => {
   const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
-  const newData = JSON.parse(resultJson);
-  newData.comment = comment.val.trim();
+  const newData = {
+    ...JSON.parse(resultJson),
+    comment: comment.val.trim()
+  };
   const updatedData = [newData, ...existingData];
   localStorage.setItem('llmResults', JSON.stringify(updatedData));
   showResults();
