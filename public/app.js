@@ -60,6 +60,8 @@ const handleUpdateClick = () => {
 
 const handleGetModelClick = async () => {
   isGetModelLoading.val = true;
+  response.val = '';
+  resultData.val = '';
   await getModel();
   isGetModelLoading.val = false;
 };
