@@ -90,8 +90,6 @@ const sendRequest = async () => {
       })
     });
 
-    console.log('Fetch response:', fetchResponse);
-
     if (!fetchResponse.ok) {
       response.val = `HTTP error! status: ${fetchResponse.status}`;
       isLoading.val = false;
@@ -214,7 +212,7 @@ const App = () => {
             placeholder: 'Enter prompt...',
             spellcheck: false,
             class: 'w-full p-4 border border-neutral-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-neutral-500',
-            rows: 4,
+            rows: 16,
             disabled: () => isLoading.val
           }
         ),
