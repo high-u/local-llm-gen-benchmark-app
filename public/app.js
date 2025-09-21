@@ -1,4 +1,4 @@
-const { div, textarea, button, p, hr } = van.tags;
+const { div, textarea, button, p, hr, input } = van.tags;
 
 const prompt = van.state('');
 const response = van.state('');
@@ -8,6 +8,7 @@ const resultData = van.state(null);
 const localStorageDisplay = van.state('');
 const isJsonError = van.state(false);
 const isGetModelLoading = van.state(false);
+const comment = van.state('');
 
 const showResults = () => {
   const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
@@ -17,6 +18,7 @@ const showResults = () => {
 const addResult = (resultJson) => {
   const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
   const newData = JSON.parse(resultJson);
+  newData.comment = comment.val.trim();
   const updatedData = [newData, ...existingData];
   localStorage.setItem('llmResults', JSON.stringify(updatedData));
   showResults();
@@ -25,6 +27,7 @@ const addResult = (resultJson) => {
 const handleAddClick = () => {
   if (resultData.val) {
     addResult(resultData.val);
+    comment.val = '';
   }
 };
 
@@ -185,7 +188,19 @@ const App = () => {
           }
         ),
       ),
-
+      div(
+        { class: 'col-span-2' },
+        input(
+          {
+            value: () => comment.val,
+            oninput: (e) => comment.val = e.target.value,
+            placeholder: 'Comment...',
+            spellcheck: false,
+            class: 'w-full p-4 border border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-500',
+            type: 'text'
+          }
+        ),
+      ),
       div(
         button(
           {
