@@ -201,7 +201,7 @@ const App = () => {
             onclick: handleAddClick,
             class: 'w-full py-2 rounded-md font-medium bg-indigo-600 hover:bg-indigo-700 text-neutral-100 cursor-pointer'
           },
-          'Add'
+          'Add result'
         )
       ),
     ),
