@@ -66,6 +66,9 @@ const getModel = async () => {
 };
 
 const sendRequest = async () => {
+
+  localStorage.setItem('savedPrompt', prompt.val);
+  
   if (!prompt.val.trim() || isLoading.val) return;
 
   isLoading.val = true;
@@ -244,6 +247,9 @@ const App = () => {
     )
   );
 };
+
+const savedPrompt = localStorage.getItem('savedPrompt') || '';
+prompt.val = savedPrompt;
 
 showResults();
 getModel();
