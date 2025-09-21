@@ -52,12 +52,20 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja -
 llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q6_K_L --jinja --ctx-size 32768
 ```
 
-#### aquif-ai/aquif-3-moe-17B-A2.8B-Think
+#### google/gemma-3-12b-it
 
-- bailingmoe.context_length u32: `32,768`
+- gemma3.context_length u32: `131,072`
 
 ```bash
-llama-server -hf mradermacher/aquif-3-moe-17b-a2.8b-thinking-i1-GGUF:IQ4_NL --jinja --ctx-size 32768
+llama-server -hf unsloth/gemma-3-12b-it-GGUF:Q6_K_XL --jinja --ctx-size 32768
+```
+
+#### Qwen/Qwen3-14B
+
+- qwen3.context_length u32: `40,960`
+
+```bash
+llama-server -hf Qwen/Qwen3-14B-GGUF:Q5_K_M --jinja --ctx-size 32768
 ```
 
 #### openai/gpt-oss-20b
