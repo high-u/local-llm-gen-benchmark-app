@@ -19,7 +19,8 @@ const addResult = (resultJson) => {
   const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
   const newData = {
     ...JSON.parse(resultJson),
-    comment: comment.val.trim()
+    comment: comment.val.trim(),
+    generated: response.val
   };
   const updatedData = [newData, ...existingData];
   localStorage.setItem('llmResults', JSON.stringify(updatedData));
