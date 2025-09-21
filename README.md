@@ -28,14 +28,6 @@ llama-server -hf Menlo/Jan-nano-gguf:Q8_0 --jinja --ctx-size 32768
 llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
-#### Qwen/Qwen3-7B-Instruct-2507
-
-- qwen3.context_length u32: `524,288`
-
-```bash
-llama-server -hf unsloth/Qwen3-7B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768
-```
-
 #### zai-org/GLM-4-9B-0414
 
 - glm4.context_length u32: `32,768`
@@ -58,14 +50,6 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja -
 
 ```bash
 llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q6_K_L --jinja --ctx-size 32768
-```
-
-#### Qwen/Qwen3-14B-Instruct-2507
-
-- qwen3.context_length u32: `1,048,576`
-
-```bash
-llama-server -hf unsloth/Qwen3-14B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
 #### aquif-ai/aquif-3-moe-17B-A2.8B-Think
