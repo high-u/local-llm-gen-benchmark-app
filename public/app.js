@@ -124,7 +124,7 @@ const sendRequest = async () => {
       return;
     }
 
-    function parseSSEStream(stream, onEvent) {
+    const parseSSEStream = (stream, onEvent) => {
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -154,11 +154,15 @@ const sendRequest = async () => {
 
     await parseSSEStream(fetchResponse.body, (data) => {
       try {
+        console.log('Received SSE data:', data);
         const json = JSON.parse(data);
         if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
           response.val += json.choices[0].delta.content;
-          window.scrollTo(0, document.body.scrollHeight);
         }
+        if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.reasoning_content) {
+          response.val += json.choices[0].delta.reasoning_content;
+        }
+        window.scrollTo(0, document.body.scrollHeight);
         if (json.timings) {
           const enhancedResult = {
             model: modelName.val,
