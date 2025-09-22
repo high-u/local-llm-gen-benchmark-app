@@ -10,6 +10,23 @@ const localStorageDisplay = van.state('');
 const isJsonError = van.state(false);
 const isGetModelLoading = van.state(false);
 const comment = van.state('');
+const abortController = van.state(null);
+const errorMessage = van.state('');
+
+const resetState = {
+  full: () => {
+    response.val = '';
+    responseReasoning.val = '';
+    resultData.val = '';
+    errorMessage.val = '';
+    abortController.val = null;
+  },
+  
+  cancel: () => {
+    abortController.val = null;
+    errorMessage.val = '';
+  }
+};
 
 const showResults = () => {
   const data = JSON.parse(localStorage.getItem('llmResults') || '[]');
@@ -61,9 +78,7 @@ const handleUpdateClick = () => {
 
 const handleGetModelClick = async () => {
   isGetModelLoading.val = true;
-  response.val = '';
-  responseReasoning.val = '';
-  resultData.val = '';
+  resetState.all();
   await getModel();
   
   const savedPrompt = localStorage.getItem('savedPrompt');
@@ -95,15 +110,23 @@ const getModel = async () => {
   }
 };
 
+const handleCancelRequest = () => {
+  if (abortController.val) {
+    abortController.val.abort();
+    resetState.cancel();
+    isLoading.val = false;
+  }
+};
+
 const sendRequest = async () => {
   if (!prompt.val.trim() || isLoading.val) return;
 
   isLoading.val = true;
-  response.val = '';
-  responseReasoning.val = '';
-  resultData.val = '';
+  resetState.all();
 
   try {
+    abortController.val = new AbortController();
+    
     const fetchResponse = await fetch('http://localhost:8080/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -118,12 +141,12 @@ const sendRequest = async () => {
         ],
         stream: true,
         timings_per_token: true
-      })
+      }),
+      signal: abortController.val.signal
     });
 
     if (!fetchResponse.ok) {
-      response.val = `HTTP error! status: ${fetchResponse.status}`;
-      isLoading.val = false;
+      errorMessage.val = `HTTP error! status: ${fetchResponse.status}`;
       return;
     }
 
@@ -133,55 +156,58 @@ const sendRequest = async () => {
       let buffer = '';
 
       return new Promise(async (resolve) => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            resolve();
-            break;
-          }
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              resolve();
+              break;
+            }
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') continue;
-              onEvent(data);
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+                onEvent(data);
+              }
             }
           }
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            errorMessage.val = `Error: ${error.message}`;
+          }
+          resolve();
         }
       });
     }
 
     await parseSSEStream(fetchResponse.body, (data) => {
-      try {
-        // console.log('Received SSE data:', data);
-        const json = JSON.parse(data);
-        if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
-          response.val += json.choices[0].delta.content;
-        }
-        if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.reasoning_content) {
-          responseReasoning.val += json.choices[0].delta.reasoning_content;
-        }
-        window.scrollTo(0, document.body.scrollHeight);
-        if (json.timings) {
-          const enhancedResult = {
-            model: modelName.val,
-            prompt: prompt.val,
-            ...json.timings
-          };
-          resultData.val = JSON.stringify(enhancedResult, undefined, 2);
-        }
-      } catch (error) {
-        console.error('Parse error:', error);
+      const json = JSON.parse(data);
+      if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
+        response.val += json.choices[0].delta.content;
+      }
+      if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.reasoning_content) {
+        responseReasoning.val += json.choices[0].delta.reasoning_content;
+      }
+      window.scrollTo(0, document.body.scrollHeight);
+      if (json.timings) {
+        const enhancedResult = {
+          model: modelName.val,
+          prompt: prompt.val,
+          ...json.timings
+        };
+        resultData.val = JSON.stringify(enhancedResult, undefined, 2);
       }
     });
   } catch (error) {
-    response.val = `Error: ${error.message}`;
+    errorMessage.val = `Error: ${error.message}`;
   } finally {
     isLoading.val = false;
+    abortController.val = null;
   }
 };
 
@@ -314,6 +340,13 @@ const App = () => {
         { class: 'whitespace-pre-wrap text-neutral-600' },
         () => resultData.val || ''
       )
+    ),
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
+      div(
+        { class: 'whitespace-pre-wrap text-rose-700' },
+        () => errorMessage.val || ''
+      )
     )
   );
 };
@@ -323,4 +356,11 @@ prompt.val = savedPrompt;
 
 showResults();
 getModel();
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isLoading.val) {
+    handleCancelRequest();
+  }
+});
+
 van.add(document.getElementById('app'), App());
