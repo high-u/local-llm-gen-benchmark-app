@@ -94,7 +94,7 @@ llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --j
 - qwen3moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:Q6_K --jinja --ctx-size 32768 --n-cpu-moe 26
+llama-server -hf mradermacher/Qwen3-30B-A1.5B-High-Speed-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
 ```
 
 #### Qwen/Qwen3-30B-A3B-Instruct-2507
@@ -106,6 +106,17 @@ llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:Q6_
 
 ```bash
 llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
+```
+
+#### DavidAU/Qwen3-30B-A6B-16-Extreme
+
+- qwen3moe.context_length u32: `262,144`
+- qwen3moe.block_count u32: `48`
+- qwen3moe.expert_used_count u32: `16`
+- qwen3moe.expert_count u32: `128`
+
+```bash
+llama-server -hf mradermacher/Qwen3-30B-A6B-16-Extreme-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
 ```
 
 #### meta-llama/Llama-4-Scout-17B-16E-Instruct
