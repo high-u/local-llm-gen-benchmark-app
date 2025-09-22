@@ -2,6 +2,7 @@ const { div, textarea, button, p, hr, input } = van.tags;
 
 const prompt = van.state('');
 const response = van.state('');
+const responseReasoning = van.state('');
 const isLoading = van.state(false);
 const modelName = van.state('');
 const resultData = van.state(null);
@@ -61,6 +62,7 @@ const handleUpdateClick = () => {
 const handleGetModelClick = async () => {
   isGetModelLoading.val = true;
   response.val = '';
+  responseReasoning.val = '';
   resultData.val = '';
   await getModel();
   
@@ -98,6 +100,7 @@ const sendRequest = async () => {
 
   isLoading.val = true;
   response.val = '';
+  responseReasoning.val = '';
   resultData.val = '';
 
   try {
@@ -154,13 +157,13 @@ const sendRequest = async () => {
 
     await parseSSEStream(fetchResponse.body, (data) => {
       try {
-        console.log('Received SSE data:', data);
+        // console.log('Received SSE data:', data);
         const json = JSON.parse(data);
         if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) {
           response.val += json.choices[0].delta.content;
         }
         if (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.reasoning_content) {
-          response.val += json.choices[0].delta.reasoning_content;
+          responseReasoning.val += json.choices[0].delta.reasoning_content;
         }
         window.scrollTo(0, document.body.scrollHeight);
         if (json.timings) {
@@ -185,10 +188,8 @@ const sendRequest = async () => {
 const App = () => {
   return div(
     { class: 'min-h-screen text-neutral-200 font-mono bg-neutral-900' },
-
     div(
       { class: 'py-8 max-w-4xl mx-auto grid grid-cols-2 gap-4' },
-
       div(
         { class: 'col-span-2' },
         textarea(
@@ -226,7 +227,6 @@ const App = () => {
           'Update'
         )
       ),
-
       div(
         button(
           {
@@ -237,17 +237,13 @@ const App = () => {
         )
       ),
     ),
-
     hr({ class: 'border border-neutral-700' }),
-
     div(
       { class: 'py-8 max-w-4xl mx-auto grid grid-cols-3 gap-4' },
-
       div(
         { class: 'col-span-3' },
         () => modelName.val ? `🤖 ${modelName.val}` : 'The server is not running'
       ),
-
       div(
         { class: 'col-span-3' },
         textarea(
@@ -262,7 +258,6 @@ const App = () => {
           }
         ),
       ),
-
       div(
         button(
           {
@@ -276,7 +271,6 @@ const App = () => {
           () => isGetModelLoading.val ? 'Getting...' : 'Get model'
         )
       ),
-
       div(
         button(
           {
@@ -286,7 +280,6 @@ const App = () => {
           'Save prompt'
         )
       ),
-
       div(
           button(
             {
@@ -301,21 +294,24 @@ const App = () => {
           )
       ),
     ),
-
     div(
       { class: 'py-8 max-w-4xl mx-auto' },
-
+      div(
+        { class: 'whitespace-pre-wrap text-neutral-600' },
+        () => responseReasoning.val || ''
+      ),
+    ),
+    div(
+      { class: 'py-8 max-w-4xl mx-auto' },
       div(
         { class: 'whitespace-pre-wrap' },
         () => response.val || ''
       ),
     ),
-
     div(
       { class: 'py-8 max-w-4xl mx-auto' },
-
       div(
-        { class: 'whitespace-pre-wrap text-amber-200' },
+        { class: 'whitespace-pre-wrap text-neutral-600' },
         () => resultData.val || ''
       )
     )
