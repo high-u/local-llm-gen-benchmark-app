@@ -10,11 +10,12 @@ const localStorageDisplay = van.state('');
 const isJsonError = van.state(false);
 const isGetModelLoading = van.state(false);
 const comment = van.state('');
+const server = van.state('');
 const abortController = van.state(null);
 const errorMessage = van.state('');
 
 const resetState = {
-  full: () => {
+  all: () => {
     response.val = '';
     responseReasoning.val = '';
     resultData.val = '';
@@ -37,8 +38,10 @@ const addResult = (resultJson) => {
   const existingData = JSON.parse(localStorage.getItem('llmResults') || '[]');
   const newData = {
     ...JSON.parse(resultJson),
+    server: server.val.trim(),
     comment: comment.val.trim(),
-    generated: response.val
+    generated: response.val,
+    reasoning: responseReasoning.val
   };
   const updatedData = [newData, ...existingData];
   localStorage.setItem('llmResults', JSON.stringify(updatedData));
@@ -48,6 +51,7 @@ const addResult = (resultJson) => {
 const handleAddClick = () => {
   if (resultData.val) {
     addResult(resultData.val);
+    server.val = '';
     comment.val = '';
   }
 };
@@ -235,6 +239,19 @@ const App = () => {
         { class: 'col-span-2' },
         input(
           {
+            value: () => server.val,
+            oninput: (e) => server.val = e.target.value,
+            placeholder: 'Server...',
+            spellcheck: false,
+            class: 'w-full p-4 border border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-500',
+            type: 'text'
+          }
+        ),
+      ),
+      div(
+        { class: 'col-span-2' },
+        input(
+          {
             value: () => comment.val,
             oninput: (e) => comment.val = e.target.value,
             placeholder: 'Comment...',
@@ -294,7 +311,7 @@ const App = () => {
                 : 'bg-lime-600 hover:bg-lime-700 text-neutral-100 cursor-pointer'
               }`
           },
-          () => isGetModelLoading.val ? 'Getting...' : 'Get model'
+          () => isGetModelLoading.val ? 'Getting...' : 'Reset'
         )
       ),
       div(
@@ -363,4 +380,4 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-van.add(document.getElementById('app'), App());
+van.add(document.body, App());
