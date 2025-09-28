@@ -1,23 +1,22 @@
 import si from "systeminformation";
 import pkg from 'terminal-kit';
-const { terminal, ScreenBuffer, TextBuffer } = pkg;   // ★ ScreenBuffer/TextBuffer を使う
+const { terminal, ScreenBuffer, TextBuffer } = pkg;
 import { exec } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 
 const getProgressBar = (max, value) => {
-  const p = Math.round(value / max * 100);
-  const twoLen = Math.round(p / 2);
+  const p = Math.ceil(value / max * 100);
+  const twoLen = Math.ceil(p / 2);
   const oneLen = (p % 2);
-  const space = " ".repeat(100 - twoLen);
-  return `|${"⣿".repeat(twoLen)}${space}|`;
+  const spaceLen = 100 - twoLen - oneLen;
+  return `${"⣿".repeat(twoLen)}${"⣇".repeat(oneLen)}${"⣀".repeat(spaceLen)}`;
 };
 
-// --- ここから UI 初期化（★追加） ---
-let sb = null;   // ScreenBuffer
-let tb = null;   // TextBuffer
+let sb = null;
+let tb = null;
 
 const initUI = () => {
-  terminal.fullscreen(true);   // 代替スクリーン＆クリアは初回のみ（毎ループで呼ばない）
+  terminal.fullscreen(true);
   terminal.hideCursor();
 
   sb = new ScreenBuffer({
@@ -32,7 +31,6 @@ const initUI = () => {
     height: terminal.height
   });
 };
-// --- UI 初期化ここまで ---
 
 terminal.on('key', (name) => {
   if (name === 'CTRL_C') {
@@ -77,7 +75,7 @@ const formatGpuData = (gpuData) => {
     vramUsagePercent,
     gpuUtil,
     gpuTemp,
-    productName: gpuData.product_name || 'NVIDIA GPU'
+    productName: gpuData.product_name,
   };
 };
 
@@ -89,19 +87,15 @@ const getAllInfo = async () => {
   return { cpuLoad, memData, gpuData };
 };
 
-// ★ displayInfo: 端末へ直書きせず TextBuffer→ScreenBuffer→delta 描画
 const displayInfo = (info) => {
   let out = '';
 
-  // CPU
   info.cpuLoad.cpus.forEach((core, index) => {
     out += `Core ${index + 1}: ${getProgressBar(100, core.load)}\n`;
   });
 
-  // MEM
   out += `Memory: ${getProgressBar(info.memData.total, info.memData.active)}\n`;
 
-  // GPU
   if (info.gpuData) {
     const g = formatGpuData(info.gpuData);
     out += `${g.productName}:\n`;
@@ -110,19 +104,16 @@ const displayInfo = (info) => {
     out += `  Temp: ${getProgressBar(100, g.gpuTemp)}\n`;
   }
 
-  // TextBuffer にまとめて流し込み → ScreenBuffer へ draw → 端末へ delta 描画
   tb.setText(out);
-  tb.draw();                 // TextBuffer -> ScreenBuffer
-  sb.draw({ delta: true });  // ScreenBuffer -> terminal（差分描画でちらつき抑制）
+  tb.draw();
+  sb.draw({ delta: true });
 };
 
 const polling = async () => {
-  // ★ ここで fullscreen() は絶対に呼ばない（initUI で初回のみ）
   const info = await getAllInfo();
   displayInfo(info);
   setTimeout(polling, 1000);
 };
 
-// --- エントリポイント ---
 initUI();
 polling();
