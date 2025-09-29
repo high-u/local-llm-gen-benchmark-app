@@ -28,6 +28,7 @@ const formatMB = (bytes) => {
 
 let sb = null;
 let tb = null;
+let dmidecodeInfo = null;
 
 const initUI = () => {
   terminal.fullscreen(true);
@@ -77,6 +78,93 @@ const getGpuInfo = () => {
       }
     });
   });
+};
+
+const getDmidecodeInfo = () => {
+  return new Promise((resolve) => {
+    exec('sudo dmidecode', (error, stdout) => {
+      if (error) {
+        resolve({
+          cpu: 'NO DATA',
+          memory: ['NO DATA']
+        });
+        return;
+      }
+      
+      try {
+        const parsed = parseDmidecodeOutput(stdout);
+        resolve(parsed);
+      } catch (parseError) {
+        resolve({
+          cpu: 'NO DATA',
+          memory: ['NO DATA']
+        });
+      }
+    });
+  });
+};
+
+const parseDmidecodeOutput = (output) => {
+  const lines = output.split('\n');
+  let cpuVersion = 'NO DATA';
+  let memoryInfo = [];
+  
+  let inCpuSection = false;
+  let inMemorySection = false;
+  let currentMemory = {};
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // CPUセクション
+    if (line === 'Processor Information') {
+      inCpuSection = true;
+      inMemorySection = false;
+      continue;
+    }
+    
+    // メモリセクション
+    if (line === 'Memory Device') {
+      inCpuSection = false;
+      inMemorySection = true;
+      currentMemory = {};
+      continue;
+    }
+    
+    // セクションの終了（空行または次のDMIタイプ）
+    if (line === '' || line.startsWith('Handle')) {
+      if (inMemorySection && currentMemory.manufacturer) {
+        // イミュータブル：新しい配列を作成
+        const memoryString = `${currentMemory.manufacturer} ${currentMemory.type || 'NO DATA'} ${currentMemory.speed || 'NO DATA'} ${currentMemory.size || 'NO DATA'}`;
+        memoryInfo = [...memoryInfo, memoryString];
+      }
+      inCpuSection = false;
+      inMemorySection = false;
+      continue;
+    }
+    
+    // 情報抽出
+    if (inCpuSection && line.startsWith('Version:')) {
+      cpuVersion = line.split(':')[1].trim();
+    }
+    
+    if (inMemorySection) {
+      if (line.startsWith('Manufacturer:')) {
+        currentMemory = { ...currentMemory, manufacturer: line.split(':')[1].trim() };
+      } else if (line.startsWith('Type:') && !line.includes('Type Detail:')) {
+        currentMemory = { ...currentMemory, type: line.split(':')[1].trim() };
+      } else if (line.startsWith('Speed:')) {
+        currentMemory = { ...currentMemory, speed: line.split(':')[1].trim() };
+      } else if (line.startsWith('Size:') && !line.includes('No Module Installed')) {
+        currentMemory = { ...currentMemory, size: line.split(':')[1].trim() };
+      }
+    }
+  }
+  
+  return {
+    cpu: cpuVersion,
+    memory: memoryInfo.length > 0 ? memoryInfo : ['NO DATA']
+  };
 };
 
 const formatGpuData = (gpuData) => {
@@ -145,10 +233,9 @@ const displayInfo = (info) => {
 
   // MEMORY Section
   out += `MEMORY\n`;
-  const memType = info.memLayoutData && info.memLayoutData[0] && info.memLayoutData[0].type 
-    ? info.memLayoutData[0].type 
-    : 'NO TYPE';
-  out += `    ${memType}\n`;
+  dmidecodeInfo.memory.forEach((memoryInfo) => {
+    out += `    ${memoryInfo}\n`;
+  });
   
   // RAM
   const ramUsedGB = formatGB(info.memData.active);
@@ -168,7 +255,8 @@ const displayInfo = (info) => {
 
   // CPU Section
   out += `CPU\n`;
-  out += `    ${info.cpuInfo.manufacturer} ${info.cpuInfo.brand}\n`;
+  const cpuName = dmidecodeInfo ? dmidecodeInfo.cpu : `${info.cpuInfo.manufacturer} ${info.cpuInfo.brand}`;
+  out += `    ${cpuName}\n`;
   out += `        LOAD\n`;
   info.cpuLoad.cpus.forEach((core) => {
     out += `        ${getProgressBar(100, core.load)} ${formatNumber(core.load)} %\n`;
@@ -182,6 +270,17 @@ const displayInfo = (info) => {
   sb.draw({ delta: true });
 };
 
+const initDmidecodeInfo = async () => {
+  try {
+    dmidecodeInfo = await getDmidecodeInfo();
+  } catch (error) {
+    dmidecodeInfo = {
+      cpu: 'NO DATA',
+      memory: ['NO DATA']
+    };
+  }
+};
+
 const polling = async () => {
   const info = await getAllInfo();
   displayInfo(info);
@@ -189,4 +288,5 @@ const polling = async () => {
 };
 
 initUI();
+await initDmidecodeInfo();
 polling();
