@@ -1,23 +1,40 @@
 import si from "systeminformation";
 import pkg from 'terminal-kit';
-const { terminal, ScreenBuffer, TextBuffer } = pkg;   // ★ ScreenBuffer/TextBuffer を使う
+const { terminal, ScreenBuffer, TextBuffer } = pkg;
 import { exec } from 'child_process';
+import { promisify } from 'util';
 import { XMLParser } from 'fast-xml-parser';
 
+const execAsync = promisify(exec);
+
 const getProgressBar = (max, value) => {
-  const p = Math.round(value / max * 100);
-  const twoLen = Math.round(p / 2);
+  const p = Math.ceil(value / max * 100);
+  const twoLen = Math.trunc(p / 2);
   const oneLen = (p % 2);
-  const space = " ".repeat(100 - twoLen);
-  return `|${"⣿".repeat(twoLen)}${space}|`;
+  const spaceLen = 50 - twoLen - oneLen;
+  return `${"⣿".repeat(twoLen)}${"⣇".repeat(oneLen)}${"⣀".repeat(spaceLen)}`;
 };
 
-// --- ここから UI 初期化（★追加） ---
-let sb = null;   // ScreenBuffer
-let tb = null;   // TextBuffer
+const formatNumber = (value) => {
+  return Math.ceil(value).toString().padStart(3, ' ');
+};
+
+const formatGB = (bytes) => {
+  const gb = bytes / (1024 * 1024 * 1024);
+  return gb.toFixed(2);
+};
+
+const formatMB = (bytes) => {
+  const gb = bytes / 1024;
+  return gb.toFixed(2);
+};
+
+let sb = null;
+let tb = null;
+let dmidecodeInfo = null;
 
 const initUI = () => {
-  terminal.fullscreen(true);   // 代替スクリーン＆クリアは初回のみ（毎ループで呼ばない）
+  terminal.fullscreen(true);
   terminal.hideCursor();
 
   sb = new ScreenBuffer({
@@ -32,7 +49,6 @@ const initUI = () => {
     height: terminal.height
   });
 };
-// --- UI 初期化ここまで ---
 
 terminal.on('key', (name) => {
   if (name === 'CTRL_C') {
@@ -57,6 +73,7 @@ const getGpuInfo = () => {
           fb_memory_usage: jsonData.nvidia_smi_log?.gpu?.fb_memory_usage,
           utilization: jsonData.nvidia_smi_log?.gpu?.utilization,
           temperature: jsonData.nvidia_smi_log?.gpu?.temperature,
+          gpu_power_readings: jsonData.nvidia_smi_log?.gpu?.gpu_power_readings,
         };
         resolve(gpuData);
       } catch (parseError) {
@@ -66,63 +83,190 @@ const getGpuInfo = () => {
   });
 };
 
+
+const parseDmidecodeOutput = (output) => {
+  const lines = output.split('\n');
+  let cpuVersion = null;
+  let memoryInfo = [];
+  
+  let inCpuSection = false;
+  let inMemorySection = false;
+  let currentMemory = {};
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // CPUセクション
+    if (line === 'Processor Information') {
+      inCpuSection = true;
+      inMemorySection = false;
+      continue;
+    }
+    
+    // メモリセクション
+    if (line === 'Memory Device') {
+      inCpuSection = false;
+      inMemorySection = true;
+      currentMemory = {};
+      continue;
+    }
+    
+    // セクションの終了（空行または次のDMIタイプ）
+    if (line === '' || line.startsWith('Handle')) {
+      if (inMemorySection && currentMemory.manufacturer) {
+        // イミュータブル：新しい配列を作成
+        const memoryString = `${currentMemory.manufacturer} ${currentMemory.type || ''} ${currentMemory.speed || ''} ${currentMemory.size || ''}`.trim();
+        memoryInfo = [...memoryInfo, memoryString];
+      }
+      inCpuSection = false;
+      inMemorySection = false;
+      continue;
+    }
+    
+    // 情報抽出
+    if (inCpuSection && line.startsWith('Version:')) {
+      cpuVersion = line.split(':')[1].trim();
+    }
+    
+    if (inMemorySection) {
+      if (line.startsWith('Manufacturer:')) {
+        currentMemory = { ...currentMemory, manufacturer: line.split(':')[1].trim() };
+      } else if (line.startsWith('Type:') && !line.includes('Type Detail:')) {
+        currentMemory = { ...currentMemory, type: line.split(':')[1].trim() };
+      } else if (line.startsWith('Speed:')) {
+        currentMemory = { ...currentMemory, speed: line.split(':')[1].trim() };
+      } else if (line.startsWith('Size:') && !line.includes('No Module Installed')) {
+        currentMemory = { ...currentMemory, size: line.split(':')[1].trim() };
+      }
+    }
+  }
+  
+  return {
+    cpu: cpuVersion,
+    memory: memoryInfo
+  };
+};
+
 const formatGpuData = (gpuData) => {
   if (!gpuData) return null;
+
+  // console.error("usage: ", gpuData.fb_memory_usage.total);
+  // console.error("used: ", gpuData.fb_memory_usage.used);
+
   const vramTotal = parseInt(gpuData.fb_memory_usage?.total?.replace(' MiB', '')) || 0;
-  const vramUsed = parseInt(gpuData.fb_memory_usage?.used?.replace(' MiB', '')) || 0;
+  const vramReserved = parseInt(gpuData.fb_memory_usage?.reserved?.replace(' MiB', '')) || 0;
+  const vramUsed = vramReserved + parseInt(gpuData.fb_memory_usage?.used?.replace(' MiB', '')) || 0;
+  
+
+  // console.error("usage: ", vramTotal);
+  // console.error("used: ", vramUsed);
+
   const vramUsagePercent = vramTotal > 0 ? (vramUsed / vramTotal) * 100 : 0;
   const gpuUtil = parseInt(gpuData.utilization?.gpu_util?.replace(' %', '')) || 0;
   const gpuTemp = parseInt(gpuData.temperature?.gpu_temp?.replace(' C', '')) || 0;
+  const instantPower = parseFloat(gpuData.gpu_power_readings?.instant_power_draw?.replace(' W', '')) || 0;
+  const defaultPowerLimit = parseFloat(gpuData.gpu_power_readings?.default_power_limit?.replace(' W', '')) || 0;
+  const powerUsagePercent = defaultPowerLimit > 0 ? (instantPower / defaultPowerLimit) * 100 : 0;
+  
   return {
+    vramTotal,
+    vramUsed,
     vramUsagePercent,
     gpuUtil,
     gpuTemp,
-    productName: gpuData.product_name || 'NVIDIA GPU'
+    productName: gpuData.product_name,
+    instantPower,
+    defaultPowerLimit,
+    powerUsagePercent,
   };
 };
 
 const getAllInfo = async () => {
   const cpuLoad = await si.currentLoad();
+  const cpuTemperature = await si.cpuTemperature();
   const memData = await si.mem();
   let gpuData = null;
   try { gpuData = await getGpuInfo(); } catch {}
-  return { cpuLoad, memData, gpuData };
+  return { cpuLoad, cpuTemperature, memData, gpuData };
 };
 
-// ★ displayInfo: 端末へ直書きせず TextBuffer→ScreenBuffer→delta 描画
 const displayInfo = (info) => {
   let out = '';
 
-  // CPU
-  info.cpuLoad.cpus.forEach((core, index) => {
-    out += `Core ${index + 1}: ${getProgressBar(100, core.load)}\n`;
-  });
-
-  // MEM
-  out += `Memory: ${getProgressBar(info.memData.total, info.memData.active)}\n`;
-
-  // GPU
+  // GPU Section
   if (info.gpuData) {
     const g = formatGpuData(info.gpuData);
-    out += `${g.productName}:\n`;
-    out += `  VRAM: ${getProgressBar(100, g.vramUsagePercent)}\n`;
-    out += `  GPU:  ${getProgressBar(100, g.gpuUtil)}\n`;
-    out += `  Temp: ${getProgressBar(100, g.gpuTemp)}\n`;
+    out += `GPU\n`;
+    out += `    ${g.productName}\n`;
+    out += `        LOAD\n`;
+    out += `        ${getProgressBar(100, g.gpuUtil)} ${formatNumber(g.gpuUtil)} %\n`;
+    out += `        VRAM ${formatMB(g.vramUsed)} GB / ${formatMB(g.vramTotal)} GB\n`;
+    out += `        ${getProgressBar(100, g.vramUsagePercent)} ${formatNumber(g.vramUsagePercent)} %\n`;
+    out += `        POWER ${formatNumber(g.instantPower)} W / ${formatNumber(g.defaultPowerLimit)} W\n`;
+    out += `        ${getProgressBar(100, g.powerUsagePercent)} ${formatNumber(g.powerUsagePercent)} %\n`;
+    out += `        TEMPERATURE ${formatNumber(g.gpuTemp)} ℃\n`;
+    // out += `    ${getProgressBar(100, g.gpuTemp)}\n`;
   }
+  out += "\n";
 
-  // TextBuffer にまとめて流し込み → ScreenBuffer へ draw → 端末へ delta 描画
+  // MEMORY Section
+  out += `MEMORY\n`;
+  const memoryToDisplay = dmidecodeInfo.memory.length > 0 ? dmidecodeInfo.memory : ['NO DATA'];
+  memoryToDisplay.forEach((memoryInfo) => {
+    out += `    ${memoryInfo}\n`;
+  });
+  
+  // RAM
+  const ramUsedGB = formatGB(info.memData.active);
+  const ramTotalGB = formatGB(info.memData.total);
+  const ramUsagePercent = info.memData.total > 0 ? (info.memData.active / info.memData.total) * 100 : 0;
+  out += `        RAM ${ramUsedGB} GB / ${ramTotalGB} GB\n`;
+  out += `        ${getProgressBar(100, ramUsagePercent)} ${formatNumber(ramUsagePercent)} %\n`;
+  
+  // SWAP
+  const swapUsedGB = formatGB(info.memData.swapused);
+  const swapTotalGB = formatGB(info.memData.swaptotal);
+  const swapUsagePercent = info.memData.swaptotal > 0 ? (info.memData.swapused / info.memData.swaptotal) * 100 : 0;
+  out += `        SWAP ${swapUsedGB} GB / ${swapTotalGB} GB\n`;
+  out += `        ${getProgressBar(100, swapUsagePercent)} ${formatNumber(swapUsagePercent)} %\n`;
+
+  out += "\n";
+
+  // CPU Section
+  out += `CPU\n`;
+  const cpuName = dmidecodeInfo.cpu || 'NO DATA';
+  out += `    ${cpuName}\n`;
+  out += `        LOAD\n`;
+  info.cpuLoad.cpus.forEach((core) => {
+    out += `        ${getProgressBar(100, core.load)} ${formatNumber(core.load)} %\n`;
+  });
+  const cpuTemp = info.cpuTemperature.main || 0;
+  out += `        TEMPERATURE ${formatNumber(cpuTemp)} ℃\n`;
+  // out += `    ${getProgressBar(100, cpuTemp)}\n`;
+
   tb.setText(out);
-  tb.draw();                 // TextBuffer -> ScreenBuffer
-  sb.draw({ delta: true });  // ScreenBuffer -> terminal（差分描画でちらつき抑制）
+  tb.draw();
+  sb.draw({ delta: true });
+};
+
+const initDmidecodeInfo = async () => {
+  try {
+    const { stdout } = await execAsync('sudo dmidecode');
+    dmidecodeInfo = parseDmidecodeOutput(stdout);
+  } catch (error) {
+    dmidecodeInfo = {
+      cpu: null,
+      memory: []
+    };
+  }
 };
 
 const polling = async () => {
-  // ★ ここで fullscreen() は絶対に呼ばない（initUI で初回のみ）
   const info = await getAllInfo();
   displayInfo(info);
   setTimeout(polling, 1000);
 };
 
-// --- エントリポイント ---
 initUI();
+await initDmidecodeInfo();
 polling();
