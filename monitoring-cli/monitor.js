@@ -2,7 +2,10 @@ import si from "systeminformation";
 import pkg from 'terminal-kit';
 const { terminal, ScreenBuffer, TextBuffer } = pkg;
 import { exec } from 'child_process';
+import { promisify } from 'util';
 import { XMLParser } from 'fast-xml-parser';
+
+const execAsync = promisify(exec);
 
 const getProgressBar = (max, value) => {
   const p = Math.ceil(value / max * 100);
@@ -80,33 +83,10 @@ const getGpuInfo = () => {
   });
 };
 
-const getDmidecodeInfo = () => {
-  return new Promise((resolve) => {
-    exec('sudo dmidecode', (error, stdout) => {
-      if (error) {
-        resolve({
-          cpu: 'NO DATA',
-          memory: ['NO DATA']
-        });
-        return;
-      }
-      
-      try {
-        const parsed = parseDmidecodeOutput(stdout);
-        resolve(parsed);
-      } catch (parseError) {
-        resolve({
-          cpu: 'NO DATA',
-          memory: ['NO DATA']
-        });
-      }
-    });
-  });
-};
 
 const parseDmidecodeOutput = (output) => {
   const lines = output.split('\n');
-  let cpuVersion = 'NO DATA';
+  let cpuVersion = null;
   let memoryInfo = [];
   
   let inCpuSection = false;
@@ -135,7 +115,7 @@ const parseDmidecodeOutput = (output) => {
     if (line === '' || line.startsWith('Handle')) {
       if (inMemorySection && currentMemory.manufacturer) {
         // イミュータブル：新しい配列を作成
-        const memoryString = `${currentMemory.manufacturer} ${currentMemory.type || 'NO DATA'} ${currentMemory.speed || 'NO DATA'} ${currentMemory.size || 'NO DATA'}`;
+        const memoryString = `${currentMemory.manufacturer} ${currentMemory.type || ''} ${currentMemory.speed || ''} ${currentMemory.size || ''}`.trim();
         memoryInfo = [...memoryInfo, memoryString];
       }
       inCpuSection = false;
@@ -163,7 +143,7 @@ const parseDmidecodeOutput = (output) => {
   
   return {
     cpu: cpuVersion,
-    memory: memoryInfo.length > 0 ? memoryInfo : ['NO DATA']
+    memory: memoryInfo
   };
 };
 
@@ -203,13 +183,11 @@ const formatGpuData = (gpuData) => {
 
 const getAllInfo = async () => {
   const cpuLoad = await si.currentLoad();
-  const cpuInfo = await si.cpu();
   const cpuTemperature = await si.cpuTemperature();
   const memData = await si.mem();
-  const memLayoutData = await si.memLayout();
   let gpuData = null;
   try { gpuData = await getGpuInfo(); } catch {}
-  return { cpuLoad, cpuInfo, cpuTemperature, memData, memLayoutData, gpuData };
+  return { cpuLoad, cpuTemperature, memData, gpuData };
 };
 
 const displayInfo = (info) => {
@@ -233,7 +211,8 @@ const displayInfo = (info) => {
 
   // MEMORY Section
   out += `MEMORY\n`;
-  dmidecodeInfo.memory.forEach((memoryInfo) => {
+  const memoryToDisplay = dmidecodeInfo.memory.length > 0 ? dmidecodeInfo.memory : ['NO DATA'];
+  memoryToDisplay.forEach((memoryInfo) => {
     out += `    ${memoryInfo}\n`;
   });
   
@@ -255,7 +234,7 @@ const displayInfo = (info) => {
 
   // CPU Section
   out += `CPU\n`;
-  const cpuName = dmidecodeInfo ? dmidecodeInfo.cpu : `${info.cpuInfo.manufacturer} ${info.cpuInfo.brand}`;
+  const cpuName = dmidecodeInfo.cpu || 'NO DATA';
   out += `    ${cpuName}\n`;
   out += `        LOAD\n`;
   info.cpuLoad.cpus.forEach((core) => {
@@ -272,11 +251,12 @@ const displayInfo = (info) => {
 
 const initDmidecodeInfo = async () => {
   try {
-    dmidecodeInfo = await getDmidecodeInfo();
+    const { stdout } = await execAsync('sudo dmidecode');
+    dmidecodeInfo = parseDmidecodeOutput(stdout);
   } catch (error) {
     dmidecodeInfo = {
-      cpu: 'NO DATA',
-      memory: ['NO DATA']
+      cpu: null,
+      memory: []
     };
   }
 };
