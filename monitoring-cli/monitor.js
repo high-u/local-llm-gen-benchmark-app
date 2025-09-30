@@ -215,7 +215,7 @@ const displayInfo = (info) => {
     out += `    ${g.productName}\n`;
     currentLine += 1;
     
-    out += `        LOAD\n`;
+    out += `        UTILIZATION\n`;
     currentLine += 1;
     
     out += `        ${getProgressBar(100, g.gpuUtil)} ${formatNumber(g.gpuUtil)} %\n`;
@@ -257,7 +257,7 @@ const displayInfo = (info) => {
   const ramUsedGB = formatGB(info.memData.active);
   const ramTotalGB = formatGB(info.memData.total);
   const ramUsagePercent = info.memData.total > 0 ? (info.memData.active / info.memData.total) * 100 : 0;
-  out += `        RAM ${ramUsedGB} GB / ${ramTotalGB} GB\n`;
+  out += `        PHYSICAL ${ramUsedGB} GB / ${ramTotalGB} GB\n`;
   currentLine += 1;
   
   out += `        ${getProgressBar(100, ramUsagePercent)} ${formatNumber(ramUsagePercent)} %\n`;
@@ -286,7 +286,7 @@ const displayInfo = (info) => {
   out += `    ${cpuName}\n`;
   currentLine += 1;
   
-  out += `        LOAD\n`;
+  out += `        USAGE\n`;
   currentLine += 1;
   
   info.cpuLoad.cpus.forEach((core) => {
