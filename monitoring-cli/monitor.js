@@ -215,18 +215,18 @@ const displayInfo = (info) => {
     out += `    ${g.productName}\n`;
     currentLine += 1;
     
-    out += `        UTILIZATION\n`;
-    currentLine += 1;
-    
-    out += `        ${getProgressBar(100, g.gpuUtil)} ${formatNumber(g.gpuUtil)} %\n`;
-    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'gpu', value: g.gpuUtil, text: getProgressBar(100, g.gpuUtil)}];
-    currentLine += 1;
-    
     out += `        VRAM ${formatMB(g.vramUsed)} GB / ${formatMB(g.vramTotal)} GB\n`;
     currentLine += 1;
     
     out += `        ${getProgressBar(100, g.vramUsagePercent)} ${formatNumber(g.vramUsagePercent)} %\n`;
     progressBars = [...progressBars, {y: currentLine, x: 8, type: 'vram', value: g.vramUsagePercent, text: getProgressBar(100, g.vramUsagePercent)}];
+    currentLine += 1;
+    
+    out += `        UTILIZATION\n`;
+    currentLine += 1;
+    
+    out += `        ${getProgressBar(100, g.gpuUtil)} ${formatNumber(g.gpuUtil)} %\n`;
+    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'gpu', value: g.gpuUtil, text: getProgressBar(100, g.gpuUtil)}];
     currentLine += 1;
     
     out += `        POWER ${formatNumber(g.instantPower)} W / ${formatNumber(g.defaultPowerLimit)} W\n`;
