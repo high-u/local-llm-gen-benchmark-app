@@ -49,7 +49,7 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja -
 - nemotron_h.context_length u32: `1,048,576`
 
 ```bash
-llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q6_K_L --jinja --ctx-size 32768
+llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
 #### google/gemma-3-12b-it
