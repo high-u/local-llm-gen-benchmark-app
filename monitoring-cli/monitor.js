@@ -29,9 +29,20 @@ const formatMB = (bytes) => {
   return gb.toFixed(2);
 };
 
+// 色定数
+const COLORS = {
+  gpu: 'green', // cyan magenta yellow green blue red
+  vram: 'magenta', 
+  power: 'yellow',
+  ram: 'magenta',
+  swap: 'blue',
+  cpu: 'cyan'
+};
+
 let sb = null;
 let tb = null;
 let dmidecodeInfo = null;
+let progressBars = [];
 
 const initUI = () => {
   terminal.fullscreen(true);
@@ -192,28 +203,54 @@ const getAllInfo = async () => {
 
 const displayInfo = (info) => {
   let out = '';
+  let currentLine = 0;
+  progressBars = []; // リセット
 
   // GPU Section
   if (info.gpuData) {
     const g = formatGpuData(info.gpuData);
     out += `GPU\n`;
+    currentLine++;
+    
     out += `    ${g.productName}\n`;
+    currentLine++;
+    
     out += `        LOAD\n`;
+    currentLine++;
+    
     out += `        ${getProgressBar(100, g.gpuUtil)} ${formatNumber(g.gpuUtil)} %\n`;
+    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'gpu', value: g.gpuUtil, text: getProgressBar(100, g.gpuUtil)}];
+    currentLine++;
+    
     out += `        VRAM ${formatMB(g.vramUsed)} GB / ${formatMB(g.vramTotal)} GB\n`;
+    currentLine++;
+    
     out += `        ${getProgressBar(100, g.vramUsagePercent)} ${formatNumber(g.vramUsagePercent)} %\n`;
+    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'vram', value: g.vramUsagePercent, text: getProgressBar(100, g.vramUsagePercent)}];
+    currentLine++;
+    
     out += `        POWER ${formatNumber(g.instantPower)} W / ${formatNumber(g.defaultPowerLimit)} W\n`;
+    currentLine++;
+    
     out += `        ${getProgressBar(100, g.powerUsagePercent)} ${formatNumber(g.powerUsagePercent)} %\n`;
+    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'power', value: g.powerUsagePercent, text: getProgressBar(100, g.powerUsagePercent)}];
+    currentLine++;
+    
     out += `        TEMPERATURE ${formatNumber(g.gpuTemp)} ℃\n`;
-    // out += `    ${getProgressBar(100, g.gpuTemp)}\n`;
+    currentLine++;
   }
+  
   out += "\n";
+  currentLine++;
 
   // MEMORY Section
   out += `MEMORY\n`;
+  currentLine++;
+  
   const memoryToDisplay = dmidecodeInfo.memory.length > 0 ? dmidecodeInfo.memory : ['NO DATA'];
   memoryToDisplay.forEach((memoryInfo) => {
     out += `    ${memoryInfo}\n`;
+    currentLine++;
   });
   
   // RAM
@@ -221,31 +258,55 @@ const displayInfo = (info) => {
   const ramTotalGB = formatGB(info.memData.total);
   const ramUsagePercent = info.memData.total > 0 ? (info.memData.active / info.memData.total) * 100 : 0;
   out += `        RAM ${ramUsedGB} GB / ${ramTotalGB} GB\n`;
+  currentLine++;
+  
   out += `        ${getProgressBar(100, ramUsagePercent)} ${formatNumber(ramUsagePercent)} %\n`;
+  progressBars = [...progressBars, {y: currentLine, x: 8, type: 'ram', value: ramUsagePercent, text: getProgressBar(100, ramUsagePercent)}];
+  currentLine++;
   
   // SWAP
   const swapUsedGB = formatGB(info.memData.swapused);
   const swapTotalGB = formatGB(info.memData.swaptotal);
   const swapUsagePercent = info.memData.swaptotal > 0 ? (info.memData.swapused / info.memData.swaptotal) * 100 : 0;
   out += `        SWAP ${swapUsedGB} GB / ${swapTotalGB} GB\n`;
+  currentLine++;
+  
   out += `        ${getProgressBar(100, swapUsagePercent)} ${formatNumber(swapUsagePercent)} %\n`;
+  progressBars = [...progressBars, {y: currentLine, x: 8, type: 'swap', value: swapUsagePercent, text: getProgressBar(100, swapUsagePercent)}];
+  currentLine++;
 
   out += "\n";
+  currentLine++;
 
   // CPU Section
   out += `CPU\n`;
+  currentLine++;
+  
   const cpuName = dmidecodeInfo.cpu || 'NO DATA';
   out += `    ${cpuName}\n`;
+  currentLine++;
+  
   out += `        LOAD\n`;
+  currentLine++;
+  
   info.cpuLoad.cpus.forEach((core) => {
     out += `        ${getProgressBar(100, core.load)} ${formatNumber(core.load)} %\n`;
+    progressBars = [...progressBars, {y: currentLine, x: 8, type: 'cpu', value: core.load, text: getProgressBar(100, core.load)}];
+    currentLine++;
   });
+  
   const cpuTemp = info.cpuTemperature.main || 0;
   out += `        TEMPERATURE ${formatNumber(cpuTemp)} ℃\n`;
-  // out += `    ${getProgressBar(100, cpuTemp)}\n`;
+  currentLine++;
 
   tb.setText(out);
   tb.draw();
+  
+  // 色付け処理
+  progressBars.forEach(bar => {
+    sb.put({x: bar.x, y: bar.y, attr: {color: COLORS[bar.type]}}, bar.text);
+  });
+  
   sb.draw({ delta: true });
 };
 
