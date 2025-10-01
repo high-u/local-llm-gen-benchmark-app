@@ -1,5 +1,7 @@
 const { div, textarea, button, p, hr, input } = van.tags;
 
+const SAMPLING_INTERVAL = 10000;
+
 const prompt = van.state('');
 const response = van.state('');
 const responseReasoning = van.state('');
@@ -13,6 +15,8 @@ const comment = van.state('');
 const server = van.state('');
 const abortController = van.state(null);
 const errorMessage = van.state('');
+const predictedSpeedSamples = van.state([]);
+const nextSamplingInterval = van.state(SAMPLING_INTERVAL);
 
 const resetState = {
   all: () => {
@@ -127,6 +131,10 @@ const sendRequest = async () => {
 
   isLoading.val = true;
   resetState.all();
+  
+  // サンプリング用変数の初期化
+  predictedSpeedSamples.val = [];
+  nextSamplingInterval.val = SAMPLING_INTERVAL;
 
   try {
     abortController.val = new AbortController();
@@ -199,10 +207,20 @@ const sendRequest = async () => {
       }
       window.scrollTo(0, document.body.scrollHeight);
       if (json.timings) {
+        // サンプリングロジック：predicted_msが次のサンプリング間隔を超えたら記録
+        if (json.timings.predicted_ms && json.timings.predicted_per_second) {
+          if (json.timings.predicted_ms >= nextSamplingInterval.val) {
+            const newSamples = [...predictedSpeedSamples.val, json.timings.predicted_per_second];
+            predictedSpeedSamples.val = newSamples;
+            nextSamplingInterval.val += SAMPLING_INTERVAL;
+          }
+        }
+        
         const enhancedResult = {
           model: modelName.val,
           prompt: prompt.val,
-          ...json.timings
+          ...json.timings,
+          predicted_per_second_samples: predictedSpeedSamples.val
         };
         resultData.val = JSON.stringify(enhancedResult, undefined, 2);
       }
