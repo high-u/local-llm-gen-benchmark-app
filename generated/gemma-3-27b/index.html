@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理アプリケーション</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+    }
+
+    #app {
+      width: 80%;
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-gap: 20px;
+    }
+
+    .task-card {
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .task-title {
+      font-weight: bold;
+    }
+
+    .task-date {
+      font-size: 0.8em;
+      color: #888;
+    }
+
+    .task-status {
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    .task-buttons {
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 5px 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 3px;
+      background-color: #ddd;
+    }
+
+    button:hover {
+      background-color: #ccc;
+    }
+
+    #new-task-form {
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    #new-task-input {
+      width: 100%;
+      padding: 5px;
+      margin-bottom: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
+    #new-task-date {
+      width: 100%;
+      padding: 5px;
+      margin-bottom: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h2>タスク管理</h2>
+
+    <form id="new-task-form">
+      <input type="text" id="new-task-input" placeholder="タスク内容を入力">
+      <input type="date" id="new-task-date" placeholder="期限日を選択">
+      <button type="button" onclick="addTask()">タスクを追加</button>
+    </form>
+
+    <div id="task-list"></div>
+  </div>
+
+  <script>
+    let db;
+    let taskList = [];
+
+    // IndexedDBの初期化
+    window.onload = () => {
+      const request = indexedDB.open('gemma-3-27b-taskdb', 1);
+
+      request.onerror = (err) => {
+        console.error('IndexedDBオープンエラー:', err);
+      };
+
+      request.onupgradeneeded = (event) => {
+        db = event.target.result;
+        db.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
+      };
+
+      request.onsuccess = () => {
+        db = event.target.result;
+        loadTasks();
+      };
+    };
+
+    // タスクの読み込み
+    function loadTasks() {
+      const transaction = db.transaction(['tasks'], 'readonly');
+      const objectStore = transaction.objectStore('tasks');
+      const request = objectStore.getAll();
+
+      request.onsuccess = (event) => {
+        taskList = event.target.result;
+        renderTasks();
+      };
+    }
+
+    // タスクの追加
+    function addTask() {
+      const taskInput = document.getElementById('new-task-input');
+      const taskDateInput = document.getElementById('new-task-date');
+      const taskContent = taskInput.value.trim();
+      const taskDate = taskDateInput.value;
+
+      if (taskContent) {
+        const task = {
+          content: taskContent,
+          status: '未完了',
+          registeredDate: new Date().toISOString(),
+          dueDate: taskDate,
+          completedDate: null
+        };
+
+        const transaction = db.transaction(['tasks'], 'readwrite');
+        const objectStore = transaction.objectStore('tasks');
+        const request = objectStore.add(task);
+
+        request.onsuccess = () => {
+          taskList.push(task);
+          renderTasks();
+          taskInput.value = '';
+          taskDateInput.value = '';
+        };
+      }
+    }
+
+    // タスクの削除
+    function deleteTask(id) {
+      const transaction = db.transaction(['tasks'], 'readwrite');
+      const objectStore = transaction.objectStore('tasks');
+      const request = objectStore.delete(id);
+
+      request.onsuccess = () => {
+        taskList = taskList.filter(task => task.id !== id);
+        renderTasks();
+      };
+    }
+
+    // タスクの状態変更
+    function toggleStatus(id) {
+      const task = taskList.find(task => task.id === id);
+      task.status = task.status === '未完了' ? '完了' : '未完了';
+
+      const transaction = db.transaction(['tasks'], 'readwrite');
+      const objectStore = transaction.objectStore('tasks');
+      const request = objectStore.put(task);
+
+      request.onsuccess = () => {
+        renderTasks();
+      };
+    }
+
+    // タスクのレンダリング
+    function renderTasks() {
+      const taskListElement = document.getElementById('task-list');
+      taskListElement.innerHTML = '';
+
+      taskList.forEach(task => {
+        const card = document.createElement('div');
+        card.classList.add('task-card');
+
+        const title = document.createElement('div');
+        title.classList.add('task-title');
+        title.textContent = task.content;
+
+        const date = document.createElement('div');
+        date.classList.add('task-date');
+        date.textContent = `登録日: ${new Date(task.registeredDate).toLocaleDateString()} 期限: ${task.dueDate}`;
+
+        const status = document.createElement('div');
+        status.classList.add('task-status');
+        status.textContent = `状態: ${task.status}`;
+
+        const buttons = document.createElement('div');
+        buttons.classList.add('task-buttons');
+
+        const completedButton = document.createElement('button');
+        completedButton.textContent = task.status === '未完了' ? '完了' : '未完了';
+        completedButton.onclick = () => toggleStatus(task.id);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = '削除';
+        deleteButton.onclick = () => deleteTask(task.id);
+
+        buttons.appendChild(completedButton);
+        buttons.appendChild(deleteButton);
+
+        card.appendChild(title);
+        card.appendChild(date);
+        card.appendChild(status);
+        card.appendChild(buttons);
+
+        taskListElement.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>

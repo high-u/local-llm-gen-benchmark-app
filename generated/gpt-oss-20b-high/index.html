@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang=\"ja\">
+<head>
+<meta charset=\"UTF-8\">
+<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+<title>タスク管理アプリケーション</title>
+<style>
+:root {
+  --bg: #f5f5f5;
+  --text: #222;
+  --accent: #444;
+  --border: #ccc;
+  --table-header-bg: #e0e0e0;
+}
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+form input[type=\"text\"],
+form input[type=\"date\"] {
+  flex: 1 1 200px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+form button {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+form button:hover {
+  background: #333;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+th {
+  background: var(--table-header-bg);
+}
+td input[type=\"checkbox\"] {
+  transform: scale(1.2);
+}
+button.delete-btn {
+  background: #c00;
+  color: #fff;
+  border: none;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+button.delete-btn:hover {
+  background: #900;
+}
+@media (max-width: 600px) {
+  form {
+    flex-direction: column;
+  }
+  form input[type=\"text\"],
+  form input[type=\"date\"],
+  form button {
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+<div class=\"container\">
+  <header>
+    <h1>タスク管理</h1>
+  </header>
+  <form id=\"taskForm\" novalidate>
+    <input type=\"text\" id=\"taskContent\" placeholder=\"タスク内容\" required>
+    <input type=\"date\" id=\"taskDeadline\">
+    <button type=\"submit\">追加</button>
+  </form>
+  <table id=\"taskTable\">
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th>状態</th>
+        <th>登録日</th>
+        <th>期限日</th>
+        <th>完了日</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- タスクがここに表示される -->
+    </tbody>
+  </table>
+</div>
+<script>
+(() => {
+  'use strict';
+  /* IndexedDB 設定 */
+  const DB_NAME = 'gpt-oss-20b-high-taskdb';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'tasks';
+  let db;
+
+  /* 日付フォーマット */
+  function formatDate(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString();
+  }
+
+  /* DB オープン */
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = e => reject(e.target.error);
+      request.onsuccess = e => {
+        db = e.target.result;
+        resolve(db);
+      };
+      request.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+    });
+  }
+
+  /* すべて取得 */
+  function getAllTasks() {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.getAll();
+      request.onsuccess = e => resolve(e.target.result);
+      request.onerror = e => reject(e.target.error);
+    });
+  }
+
+  /* 追加 */
+  function addTask(task) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.add(task);
+      request.onsuccess = e => resolve(e.target.result);
+      request.onerror = e => reject(e.target.error);
+    });
+  }
+
+  /* 削除 */
+  function deleteTask(id) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = e => reject(e.target.error);
+    });
+  }
+
+  /* id で取得 */
+  function getTaskById(id) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.get(id);
+      request.onsuccess = e => resolve(e.target.result);
+      request.onerror = e => reject(e.target.error);
+    });
+  }
+
+  /* 更新 */
+  function updateTask(task) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.put(task);
+      request.onsuccess = () => resolve();
+      request.onerror = e => reject(e.target.error);
+    });
+  }
+
+  /* 表示 */
+  function renderTasks(tasks) {
+    const tbody = document.querySelector('#taskTable tbody');
+    tbody.innerHTML = '';
+    tasks.forEach(task => {
+      const tr = document.createElement('tr');
+
+      const tdContent = document.createElement('td');
+      tdContent.textContent = task.content;
+      tr.appendChild(tdContent);
+
+      const tdStatus = document.createElement('td');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = task.status;
+      checkbox.dataset.id = task.id;
+      checkbox.addEventListener('change', handleStatusChange);
+      tdStatus.appendChild(checkbox);
+      tr.appendChild(tdStatus);
+
+      const tdRegistered = document.createElement('td');
+      tdRegistered.textContent = formatDate(task.registered);
+      tr.appendChild(tdRegistered);
+
+      const tdDeadline = document.createElement('td');
+      tdDeadline.textContent = task.deadline ? formatDate(task.deadline) : '';
+      tr.appendChild(tdDeadline);
+
+      const tdCompleted = document.createElement('td');
+      tdCompleted.textContent = task.completed ? formatDate(task.completed) : '';
+      tr.appendChild(tdCompleted);
+
+      const tdActions = document.createElement('td');
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.dataset.id = task.id;
+      deleteBtn.addEventListener('click', handleDeleteClick);
+      tdActions.appendChild(deleteBtn);
+      tr.appendChild(tdActions);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* データ読み込みと表示 */
+  function loadAndRenderTasks() {
+    getAllTasks()
+      .then(tasks => {
+        tasks.sort((a, b) => {
+          if (a.status !== b.status) return a.status - b.status; // 未完了→完了
+          return new Date(b.registered) - new Date(a.registered); // 登録日降順
+        });
+        renderTasks(tasks);
+      })
+      .catch(err => console.error('タスク取得失敗', err));
+  }
+
+  /* フォーム送信 */
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const content = document.querySelector('#taskContent').value.trim();
+    if (!content) {
+      alert('タスク内容を入力してください。');
+      return;
+    }
+    const deadlineValue = document.querySelector('#taskDeadline').value;
+    const deadline = deadlineValue ? new Date(deadlineValue).toISOString() : null;
+    const task = {
+      content,
+      status: false,
+      registered: new Date().toISOString(),
+      deadline,
+      completed: null
+    };
+    addTask(task)
+      .then(() => {
+        document.querySelector('#taskContent').value = '';
+        document.querySelector('#taskDeadline').value = '';
+        loadAndRenderTasks();
+      })
+      .catch(err => console.error('タスク追加失敗', err));
+  }
+
+  /* 削除 */
+  function handleDeleteClick(e) {
+    const id = Number(e.target.dataset.id);
+    if (confirm('タスクを削除しますか？')) {
+      deleteTask(id)
+        .then(() => loadAndRenderTasks())
+        .catch(err => console.error('削除失敗', err));
+    }
+  }
+
+  /* 状態変更 */
+  function handleStatusChange(e) {
+    const id = Number(e.target.dataset.id);
+    const newStatus = e.target.checked;
+    getTaskById(id)
+      .then(task => {
+        task.status = newStatus;
+        task.completed = newStatus ? new Date().toISOString() : null;
+        return updateTask(task);
+      })
+      .then(() => loadAndRenderTasks())
+      .catch(err => console.error('状態更新失敗', err));
+  }
+
+  /* 初期化 */
+  document.addEventListener('DOMContentLoaded', () => {
+    openDB()
+      .then(() => {
+        document.querySelector('#taskForm').addEventListener('submit', handleFormSubmit);
+        loadAndRenderTasks();
+      })
+      .catch(err => {
+        console.error('IndexedDBオープン失敗', err);
+        alert('IndexedDBがサポートされていません。');
+      });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>タスク管理アプリ</title>
+  <style>
+    /* リキッドレイアウト + グリッドシステム + モノクローム */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f8f8f8;
+      color: #111;
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      padding: 20px 0;
+    }
+
+    .card {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+    }
+
+    .card-header {
+      background-color: #eee;
+      padding: 12px 16px;
+      font-weight: 600;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .card-body {
+      padding: 16px;
+    }
+
+    .task-content {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .task-meta {
+      font-size: 12px;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .task-status {
+      display: inline-block;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      text-transform: uppercase;
+    }
+
+    .status-incomplete {
+      color: #111;
+      background-color: #f0f0f0;
+    }
+
+    .status-complete {
+      color: #008000;
+      background-color: #e6f7e6;
+      border-color: #c3e6c3;
+    }
+
+    .task-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      padding: 6px 10px;
+      font-size: 12px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+      color: #111;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #f0f0f0;
+    }
+
+    button.delete {
+      background-color: #fff;
+      color: #d00;
+      border-color: #d00;
+    }
+
+    button.delete:hover {
+      background-color: #fdd;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      height: 60px;
+      resize: vertical;
+    }
+
+    .task-form {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .task-form h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #111;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .form-actions button {
+      flex: 1;
+    }
+
+    .form-actions button[type="submit"] {
+      background-color: #008000;
+      color: #fff;
+      border-color: #008000;
+    }
+
+    .form-actions button[type="submit"]:hover {
+      background-color: #006400;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #888;
+      font-style: italic;
+      font-size: 14px;
+      background-color: #fff;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- フォームエリア -->
+    <div class="card">
+      <div class="card-body">
+        <form id="taskForm" class="task-form">
+          <h2>タスク登録</h2>
+          <div class="form-group">
+            <label for="taskContent">内容</label>
+            <textarea id="taskContent" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="taskDueDate">期限日</label>
+            <input type="date" id="taskDueDate" required />
+          </div>
+          <div class="form-actions">
+            <button type="submit">登録</button>
+            <button type="button" id="clearForm">リセット</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- タスク一覧エリア -->
+    <div class="card">
+      <div class="card-header">タスク一覧</div>
+      <div class="card-body">
+        <div id="taskList">
+          <div class="empty-state">タスクがありません</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // IndexedDB 初期化
+    const DB_NAME = 'qwen3-30b-a3b-instruct-taskdb';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'tasks';
+
+    let db = null;
+
+    const openDB = () => {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+
+        request.onupgradeneeded = (event) => {
+          db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            store.createIndex('status', 'status', { unique: false });
+            store.createIndex('dueDate', 'dueDate', { unique: false });
+            store.createIndex('createdAt', 'createdAt', { unique: false });
+          }
+        };
+      });
+    };
+
+    // タスクを取得
+    const getAllTasks = async () => {
+      const result = [];
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          result.push(...request.result);
+          resolve(result);
+        };
+
+        request.onerror = () => reject(request.error);
+      });
+    };
+
+    // タスクを保存
+    const saveTask = async (task) => {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(task);
+
+        request.onsuccess = () => resolve(task.id);
+        request.onerror = () => reject(request.error);
+      });
+    };
+
+    // タスクを削除
+    const deleteTask = async (id) => {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    };
+
+    // 状態変更
+    const updateTaskStatus = async (id, status) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => {
+        const task = request.result;
+        task.status = status;
+        task.completedAt = status === 'complete' ? new Date().toISOString() : null;
+        store.put(task);
+      };
+    };
+
+    // タスクリストをレンダリング
+    const renderTasks = async () => {
+      const taskListEl = document.getElementById('taskList');
+      const tasks = await getAllTasks();
+
+      if (tasks.length === 0) {
+        taskListEl.innerHTML = '<div class="empty-state">タスクがありません</div>';
+        return;
+      }
+
+      taskListEl.innerHTML = '';
+
+      // タスクを登録日時で降順にソート
+      tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      tasks.forEach(task => {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'card';
+        taskEl.style.marginBottom = '12px';
+
+        const dueDate = new Date(task.dueDate);
+        const formattedDueDate = dueDate.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+
+        const createdAt = new Date(task.createdAt);
+        const formattedCreatedAt = createdAt.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+
+        const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleDateString('ja-JP') : '';
+
+        taskEl.innerHTML = `
+          <div class="card-body">
+            <div class="task-content">${task.content}</div>
+            <div class="task-meta">
+              <span><strong>登録日:</strong> ${formattedCreatedAt}</span>
+              <span><strong>期限日:</strong> ${formattedDueDate}</span>
+              ${completedAt ? `<span><strong>完了日:</strong> ${completedAt}</span>` : ''}
+            </div>
+            <div class="task-status status-${task.status}">${task.status === 'complete' ? '完了' : '未完了'}</div>
+            <div class="task-actions">
+              <button class="toggle-status" data-id="${task.id}" data-status="${task.status === 'complete' ? 'incomplete' : 'complete'}">
+                ${task.status === 'complete' ? '未完了' : '完了'}
+              </button>
+              <button class="delete" data-id="${task.id}">削除</button>
+            </div>
+          </div>
+        `;
+
+        taskListEl.appendChild(taskEl);
+      });
+
+      // イベントリスナーの再設定
+      document.querySelectorAll('.toggle-status').forEach(btn => {
+        btn.removeEventListener('click', toggleStatusHandler);
+        btn.addEventListener('click', toggleStatusHandler);
+      });
+
+      document.querySelectorAll('.delete').forEach(btn => {
+        btn.removeEventListener('click', deleteTaskHandler);
+        btn.addEventListener('click', deleteTaskHandler);
+      });
+    };
+
+    // 状態変更ハンドラー
+    const toggleStatusHandler = async function () {
+      const id = this.getAttribute('data-id');
+      const status = this.getAttribute('data-status');
+      await updateTaskStatus(id, status);
+      await renderTasks();
+    };
+
+    // 削除ハンドラー
+    const deleteTaskHandler = async function () {
+      if (!confirm('このタスクを削除しますか？')) return;
+      const id = this.getAttribute('data-id');
+      await deleteTask(id);
+      await renderTasks();
+    };
+
+    // フォーム送信
+    document.getElementById('taskForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const content = document.getElementById('taskContent').value.trim();
+      const dueDate = document.getElementById('taskDueDate').value;
+
+      if (!content || !dueDate) {
+        alert('内容と期限日は必須です');
+        return;
+      }
+
+      const newTask = {
+        id: Date.now().toString(),
+        content,
+        status: 'incomplete',
+        createdAt: new Date().toISOString(),
+        dueDate,
+        completedAt: null
+      };
+
+      try {
+        await saveTask(newTask);
+        await renderTasks();
+        document.getElementById('taskForm').reset();
+      } catch (err) {
+        alert('タスクの保存に失敗しました: ' + err.message);
+      }
+    });
+
+    // フォームリセット
+    document.getElementById('clearForm').addEventListener('click', function () {
+      document.getElementById('taskForm').reset();
+    });
+
+    // 初期化
+    openDB().then((database) => {
+      db = database;
+      renderTasks();
+    }).catch(err => {
+      alert('データベースの初期化に失敗しました: ' + err.message);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>タスク管理アプリ</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .form-section {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .task-list {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .task-item .content {
+            flex: 1;
+        }
+
+        .task-item .status {
+            font-weight: bold;
+        }
+
+        .task-item .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            background-color: #ffffff;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            background-color: #000000;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #333333;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="form-section">
+            <h2>タスク登録</h2>
+            <input type="text" id="taskContent" placeholder="タスク内容">
+            <input type="date" id="taskDeadline">
+            <button onclick="addTask()">追加</button>
+        </div>
+        <div class="task-list">
+            <h2>タスク一覧</h2>
+            <div id="taskList"></div>
+        </div>
+    </div>
+
+    <script>
+        const DB_NAME = "qwen3-30b-a3b-extreme-taskdb";
+        const DB_VERSION = 1;
+        const STORE_NAME = "tasks";
+
+        let db;
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = function(event) {
+                    db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+                    }
+                };
+                request.onsuccess = function(event) {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                request.onerror = function(event) {
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        async function addTask() {
+            const content = document.getElementById("taskContent").value.trim();
+            const deadline = document.getElementById("taskDeadline").value;
+            if (!content || !deadline) return;
+
+            const task = {
+                content: content,
+                status: "未完了",
+                registrationDate: new Date().toISOString(),
+                deadline: deadline,
+                completionDate: null
+            };
+
+            const db = await openDB();
+            const transaction = db.transaction(STORE_NAME, "readwrite");
+            const store = transaction.objectStore(STORE_NAME);
+            store.add(task);
+            transaction.oncomplete = () => {
+                db.close();
+                loadTasks();
+            };
+        }
+
+        async function loadTasks() {
+            const db = await openDB();
+            const transaction = db.transaction(STORE_NAME, "readonly");
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAll();
+            request.onsuccess = function(event) {
+                const tasks = event.target.result;
+                const list = document.getElementById("taskList");
+                list.innerHTML = "";
+                tasks.forEach(task => {
+                    const taskDiv = document.createElement("div");
+                    taskDiv.className = "task-item";
+                    taskDiv.innerHTML = `
+                        <div class="content">
+                            <strong>${task.content}</strong><br>
+                            期限: ${task.deadline}<br>
+                            登録日: ${task.registrationDate.split("T")[0]}<br>
+                            完了日: ${task.completionDate ? task.completionDate.split("T")[0] : "-"}
+                        </div>
+                        <div class="status">${task.status}</div>
+                        <div class="actions">
+                            <button onclick="toggleStatus(${task.id})">状態変更</button>
+                            <button onclick="deleteTask(${task.id})">削除</button>
+                        </div>
+                    `;
+                    list.appendChild(taskDiv);
+                });
+                db.close();
+            };
+        }
+
+        async function toggleStatus(id) {
+            const db = await openDB();
+            const transaction = db.transaction(STORE_NAME, "readwrite");
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(id);
+            request.onsuccess = function(event) {
+                const task = event.target.result;
+                task.status = task.status === "未完了" ? "完了" : "未完了";
+                task.completionDate = task.status === "完了" ? new Date().toISOString() : null;
+                store.put(task);
+                transaction.oncomplete = () => {
+                    db.close();
+                    loadTasks();
+                };
+            };
+        }
+
+        async function deleteTask(id) {
+            const db = await openDB();
+            const transaction = db.transaction(STORE_NAME, "readwrite");
+            const store = transaction.objectStore(STORE_NAME);
+            store.delete(id);
+            transaction.oncomplete = () => {
+                db.close();
+                loadTasks();
+            };
+        }
+
+        // Initial load
+        loadTasks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IndexedDB Manager</title>
+</head>
+
+<body>
+  <h1>IndexedDB Database List</h1>
+  <button onclick="refreshList()">Refresh</button>
+  <div id="database-list"></div>
+
+  <script>
+    async function listDatabases() {
+      try {
+        const databases = await indexedDB.databases();
+        const listContainer = document.getElementById('database-list');
+
+        if (databases.length === 0) {
+          listContainer.innerHTML = '<p>No databases found</p>';
+          return;
+        }
+
+        let html = '<ul>';
+        databases.forEach(db => {
+          html += `<li>${db.name} <button onclick="deleteDatabase('${db.name}')">Delete</button></li>`;
+        });
+        html += '</ul>';
+
+        listContainer.innerHTML = html;
+      } catch (error) {
+        console.error('Failed to get database list:', error);
+        document.getElementById('database-list').innerHTML = '<p>An error occurred</p>';
+      }
+    }
+
+    function deleteDatabase(dbName) {
+      if (confirm(`Are you sure you want to delete database "${dbName}"?`)) {
+        const deleteRequest = indexedDB.deleteDatabase(dbName);
+
+        deleteRequest.onsuccess = function () {
+          console.log(`Database "${dbName}" deleted`);
+          refreshList();
+        };
+
+        deleteRequest.onerror = function () {
+          console.error(`Failed to delete database "${dbName}"`);
+          alert('Delete failed');
+        };
+      }
+    }
+
+    function refreshList() {
+      listDatabases();
+    }
+
+    // Display list on page load
+    window.onload = function () {
+      listDatabases();
+    };
+  </script>
+</body>
+
+</html>

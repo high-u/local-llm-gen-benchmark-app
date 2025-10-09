@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>タスク管理アプリ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+/* ──────────────────────
+   Monochrome Dashboard Layout
+   ────────────────────── */
+:root{
+    --bg:#fafafa;
+    --bg2:#eaeaea;
+    --txt:#111;
+    --gray:#777;
+    --border:#ccc;
+}
+html,body{
+    height:100%;
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:var(--bg);
+    color:var(--txt);
+}
+h1{
+    margin:0;
+    font-size:1.5rem;
+}
+header{
+    background:var(--bg2);
+    padding:1rem;
+    border-bottom:1px solid var(--border);
+}
+.container{
+    display:grid;
+    grid-template-rows:auto 1fr;
+    height:calc(100% - 68px); /* header height approx */
+}
+.main{
+    padding:1rem;
+    overflow:auto;
+}
+form{
+    display:grid;
+    gap:0.5rem;
+    grid-template-columns:1fr auto;
+    margin-bottom:1rem;
+}
+form input[type="text"],
+form input[type="date"]{
+    padding:0.4rem;
+    border:1px solid var(--border);
+    background:#fff;
+}
+form button{
+    padding:0.4rem 0.8rem;
+    background:var(--gray);
+    color:#fff;
+    border:none;
+    cursor:pointer;
+}
+form button:hover{
+    background:#555;
+}
+
+/* Task table */
+table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+thead{
+    background:var(--bg2);
+}
+th, td{
+    padding:0.5rem;
+    border:1px solid var(--border);
+    word-wrap:break-word;
+    text-align:left;
+    font-size:0.9rem;
+}
+td.status{
+    text-align:center;
+}
+td.actions{
+    white-space:nowrap;
+    text-align:center;
+}
+button.action{
+    margin:0 0.2rem;
+    padding:0.2rem 0.4rem;
+    background:var(--gray);
+    color:#fff;
+    border:none;
+    cursor:pointer;
+    font-size:0.8rem;
+}
+button.action:hover{
+    background:#555;
+}
+
+/* Responsive */
+@media (max-width:600px){
+    form{
+        grid-template-columns:1fr;
+    }
+    th, td{
+        font-size:0.8rem;
+    }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>タスク管理ダッシュボード</h1>
+</header>
+
+<div class="container">
+    <div class="main">
+        <!-- タスク登録フォーム -->
+        <form id="taskForm">
+            <input type="text" id="content" placeholder="タスク内容" required>
+            <input type="date" id="dueDate" required>
+            <button type="submit">追加</button>
+        </form>
+
+        <!-- タスク一覧 -->
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:30%;">内容</th>
+                    <th style="width:10%;">状態</th>
+                    <th style="width:15%;">登録日</th>
+                    <th style="width:15%;">期限日</th>
+                    <th style="width:15%;">完了日</th>
+                    <th style="width:15%;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="taskList">
+                <!-- JS が生成 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+/* ──────────────────────
+   IndexedDB Utility
+   ────────────────────── */
+const DB_NAME = 'gpt-oss-120b-taskdb';
+const DB_VERSION = 1;
+const STORE_NAME = 'tasks';
+
+let db;
+
+/* DB 初期化 */
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, {
+                    keyPath: 'id',
+                    autoIncrement: true
+                });
+                // 検索しやすいようにインデックスを作成（任意）
+                store.createIndex('status', 'status', { unique: false });
+                store.createIndex('due', 'due', { unique: false });
+            }
+        };
+        request.onsuccess = e => {
+            db = e.target.result;
+            resolve();
+        };
+        request.onerror = e => reject(e.target.error);
+    });
+}
+
+/* 全件取得 */
+function getAllTasks() {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e.target.error);
+    });
+}
+
+/* 追加 */
+function addTask(task) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.add(task);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = e => reject(e.target.error);
+    });
+}
+
+/* 削除 */
+function deleteTask(id) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = e => reject(e.target.error);
+    });
+}
+
+/* 更新（状態変更） */
+function updateTask(task) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(task);
+        req.onsuccess = () => resolve();
+        req.onerror = e => reject(e.target.error);
+    });
+}
+
+/* ──────────────────────
+   UI Rendering
+   ────────────────────── */
+function formatDate(ts) {
+    if (!ts) return '-';
+    const d = new Date(ts);
+    return d.toLocaleDateString();
+}
+
+function renderTasks(tasks) {
+    const tbody = document.getElementById('taskList');
+    tbody.innerHTML = ''; // クリア
+
+    tasks.sort((a, b) => a.id - b.id); // ID 順に表示
+
+    for (const t of tasks) {
+        const tr = document.createElement('tr');
+
+        // 内容
+        const tdContent = document.createElement('td');
+        tdContent.textContent = t.content;
+        tr.appendChild(tdContent);
+
+        // 状態
+        const tdStatus = document.createElement('td');
+        tdStatus.className = 'status';
+        tdStatus.textContent = t.status ? '完了' : '未完了';
+        tr.appendChild(tdStatus);
+
+        // 登録日
+        const tdCreated = document.createElement('td');
+        tdCreated.textContent = formatDate(t.created);
+        tr.appendChild(tdCreated);
+
+        // 期限日
+        const tdDue = document.createElement('td');
+        tdDue.textContent = formatDate(t.due);
+        tr.appendChild(tdDue);
+
+        // 完了日
+        const tdDone = document.createElement('td');
+        tdDone.textContent = formatDate(t.completed);
+        tr.appendChild(tdDone);
+
+        // 操作ボタン
+        const tdActions = document.createElement('td');
+        tdActions.className = 'actions';
+
+        // 状態トグル
+        const btnToggle = document.createElement('button');
+        btnToggle.className = 'action';
+        btnToggle.textContent = t.status ? '未完了に戻す' : '完了にする';
+        btnToggle.onclick = () => toggleStatus(t);
+        tdActions.appendChild(btnToggle);
+
+        // 削除
+        const btnDel = document.createElement('button');
+        btnDel.className = 'action';
+        btnDel.textContent = '削除';
+        btnDel.onclick = () => removeTask(t.id);
+        tdActions.appendChild(btnDel);
+
+        tr.appendChild(tdActions);
+        tbody.appendChild(tr);
+    }
+}
+
+/* ──────────────────────
+   操作ハンドラ
+   ────────────────────── */
+async function loadAndRender() {
+    const tasks = await getAllTasks();
+    renderTasks(tasks);
+}
+
+/* 追加 */
+document.getElementById('taskForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const contentEl = document.getElementById('content');
+    const dueEl = document.getElementById('dueDate');
+
+    const now = Date.now();
+    const due = new Date(dueEl.value).setHours(0,0,0,0); // 日付だけ取得
+
+    const task = {
+        content: contentEl.value.trim(),
+        status: 0,                // 0 = 未完了, 1 = 完了
+        created: now,
+        due: due,
+        completed: null
+    };
+
+    await addTask(task);
+    contentEl.value = '';
+    dueEl.value = '';
+    await loadAndRender();
+});
+
+/* 削除 */
+async function removeTask(id) {
+    if (!confirm('このタスクを削除しますか？')) return;
+    await deleteTask(id);
+    await loadAndRender();
+}
+
+/* 状態トグル */
+async function toggleStatus(task) {
+    if (task.status) {
+        // 完了 → 未完了
+        task.status = 0;
+        task.completed = null;
+    } else {
+        // 未完了 → 完了
+        task.status = 1;
+        task.completed = Date.now();
+    }
+    await updateTask(task);
+    await loadAndRender();
+}
+
+/* ──────────────────────
+   初期化
+   ────────────────────── */
+window.addEventListener('load', async () => {
+    try {
+        await openDB();
+        await loadAndRender();
+    } catch (err) {
+        console.error('DB エラー:', err);
+        alert('データベースの初期化に失敗しました。コンソールを確認してください。');
+    }
+});
+</script>
+</body>
+</html>

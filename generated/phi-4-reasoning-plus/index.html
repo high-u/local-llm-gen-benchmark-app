@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理アプリケーション</title>
+  <style>
+    /* 基本スタイル */
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background-color: #fff;
+      color: #000;
+    }
+    #app {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    /* フォームスタイル */
+    #taskForm {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    #taskForm label {
+      font-weight: bold;
+    }
+    #taskForm input,
+    #taskForm button {
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    /* タスク一覧（グリッドレイアウト） */
+    #taskList {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .task-card {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      background-color: #fff;
+    }
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .task-header button {
+      padding: 0.3rem 0.5rem;
+      margin-left: 0.5rem;
+      cursor: pointer;
+    }
+    .task-body {
+      font-size: 0.9rem;
+    }
+    .status {
+      font-weight: bold;
+      padding: 0.2rem 0.5rem;
+      background: #eee;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>タスク管理</h1>
+    </header>
+    <main>
+      <!-- タスク登録フォーム -->
+      <section id="addTaskSection">
+        <form id="taskForm">
+          <label for="content">タスク内容:</label>
+          <input type="text" id="content" placeholder="タスク内容を入力" required>
+          <label for="deadline">期限日:</label>
+          <input type="date" id="deadline" required>
+          <button type="submit">登録</button>
+        </form>
+      </section>
+      <!-- タスク一覧表示エリア -->
+      <section id="taskListSection">
+        <div id="taskList" class="grid">
+          <!-- タスクカードが動的に追加されます -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /***************************************
+     * IndexedDB の操作関数群
+     ***************************************/
+    // IndexedDB のオープン関数（Promise 化）
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("phi-4-reasoning-plus-taskdb", 1);
+        request.onupgradeneeded = event => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains("tasks")) {
+            db.createObjectStore("tasks", { keyPath: "id", autoIncrement: true });
+          }
+        };
+        request.onsuccess = event => {
+          resolve(event.target.result);
+        };
+        request.onerror = event => {
+          reject("DBエラー");
+        };
+      });
+    }
+
+    // 全てのタスクを取得する関数
+    function loadTasks() {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(["tasks"], "readonly");
+          const store = transaction.objectStore("tasks");
+          const request = store.getAll();
+          request.onsuccess = () => {
+            resolve(request.result);
+          };
+          request.onerror = () => {
+            reject("読み込みエラー");
+          };
+        });
+      });
+    }
+
+    // 新規タスクを追加する関数
+    function addTask(taskData) {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(["tasks"], "readwrite");
+          const store = transaction.objectStore("tasks");
+          const request = store.add(taskData);
+          request.onsuccess = () => {
+            resolve(request.result);
+          };
+          request.onerror = () => {
+            reject("登録エラー");
+          };
+        });
+      });
+    }
+
+    // タスクを更新する関数
+    function updateTask(id, updatedData) {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(["tasks"], "readwrite");
+          const store = transaction.objectStore("tasks");
+          const request = store.get(id);
+          request.onsuccess = event => {
+            let data = event.target.result;
+            Object.assign(data, updatedData);
+            const updateRequest = store.put(data);
+            updateRequest.onsuccess = () => {
+              resolve(updateRequest.result);
+            };
+            updateRequest.onerror = () => {
+              reject("更新エラー");
+            };
+          };
+          request.onerror = () => {
+            reject("取得エラー");
+          };
+        });
+      });
+    }
+
+    // タスクを削除する関数
+    function deleteTask(id) {
+      return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(["tasks"], "readwrite");
+          const store = transaction.objectStore("tasks");
+          const request = store.delete(id);
+          request.onsuccess = () => {
+            resolve();
+          };
+          request.onerror = () => {
+            reject("削除エラー");
+          };
+        });
+      });
+    }
+
+    /***************************************
+     * UI のレンダリング関数群
+     ***************************************/
+    // タスク一覧をレンダリングする関数
+    function renderTasks(tasks) {
+      const taskList = document.getElementById("taskList");
+      taskList.innerHTML = ""; // 既存の内容をクリア
+      tasks.forEach(task => {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        card.innerHTML = `
+          <div class="task-header">
+            <span class="status">${task.state}</span>
+            <button class="toggle-btn">${task.state === '未完了' ? '完了にする' : '未完了に戻す'}</button>
+            <button class="delete-btn">削除</button>
+          </div>
+          <div class="task-body">
+            <p class="content">${task.content}</p>
+            <p class="dates">
+              登録日: ${task.registrationDate} <br>
+              期限日: ${task.deadlineDate} <br>
+              ${task.finishDate ? "完了日: " + task.finishDate : ""}
+            </p>
+          </div>
+        `;
+        // 状態変更ボタンのイベント追加
+        card.querySelector('.toggle-btn').addEventListener('click', () => {
+          toggleTaskState(task.id);
+        });
+        // 削除ボタンのイベント追加
+        card.querySelector('.delete-btn').addEventListener('click', () => {
+          deleteTaskConfirm(task.id, card);
+        });
+        taskList.appendChild(card);
+      });
+    }
+
+    // ページ読み込み時および更新後にタスクを再読み込み＆レンダリングする関数
+    function loadAndRenderTasks() {
+      loadTasks().then(tasks => {
+        renderTasks(tasks);
+      }).catch(err => {
+        console.error("タスク読み込みエラー", err);
+      });
+    }
+
+    // タスクの状態を切り替える関数
+    function toggleTaskState(taskId) {
+      loadTasks().then(tasks => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        let newState;
+        if (task.state === '未完了') {
+          newState = '完了';
+          // 完了日を今日の日付でセット
+          task.finishDate = new Date().toISOString().split('T')[0];
+        } else {
+          newState = '未完了';
+          task.finishDate = null;
+        }
+        task.state = newState;
+        return updateTask(taskId, task);
+      }).then(() => {
+        loadAndRenderTasks();
+      }).catch(err => {
+        console.error("タスク状態変更エラー", err);
+      });
+    }
+
+    // 削除確認ダイアログを表示し、削除処理を行う関数
+    function deleteTaskConfirm(taskId, card) {
+      if (confirm("本当にタスクを削除しますか？")) {
+        deleteTask(taskId).then(() => {
+          loadAndRenderTasks();
+        }).catch(err => {
+          console.error("タスク削除エラー", err);
+        });
+      }
+    }
+
+    /***************************************
+     * フォームイベントの設定
+     ***************************************/
+    document.getElementById('taskForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const content = document.getElementById('content').value;
+      const deadline = document.getElementById('deadline').value;
+      if (!content || !deadline) {
+        alert("タスク内容と期限日を入力してください。");
+        return;
+      }
+      const task = {
+        content: content,
+        state: '未完了',
+        registrationDate: new Date().toISOString().split('T')[0],
+        deadlineDate: deadline,
+        finishDate: null
+      };
+      addTask(task).then(() => {
+        loadAndRenderTasks();
+        this.reset();
+      }).catch(err => {
+        console.error("タスク登録エラー", err);
+      });
+    });
+
+    // ページロード時にタスクを読み込み、レンダリングする
+    document.addEventListener("DOMContentLoaded", loadAndRenderTasks);
+  </script>
+</body>
+</html>
