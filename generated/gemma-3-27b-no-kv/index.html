@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理アプリケーション</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+    }
+
+    .container {
+      width: 80%;
+      margin: 20px auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+    }
+
+    .task-card {
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 16px;
+      border-radius: 4px;
+    }
+
+    .task-card h3 {
+      margin-top: 0;
+    }
+
+    .task-card p {
+      margin-bottom: 8px;
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    .task-actions {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .task-actions button {
+      background-color: #eee;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .task-actions button:hover {
+      background-color: #ddd;
+    }
+
+    .task-form {
+      margin-top: 20px;
+      padding: 16px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .task-form label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    .task-form input[type="text"],
+    .task-form input[type="date"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .task-form button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .task-form button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>タスク管理</h1>
+
+    <div class="task-form">
+      <h2>タスク登録</h2>
+      <label for="task-content">内容:</label>
+      <input type="text" id="task-content" name="task-content">
+      <label for="task-due-date">期限日:</label>
+      <input type="date" id="task-due-date" name="task-due-date">
+      <button id="add-task">タスクを追加</button>
+    </div>
+
+    <div class="grid" id="task-list">
+      <!-- タスクカードは JavaScript で動的に生成されます -->
+    </div>
+  </div>
+
+  <script>
+    // IndexedDB の設定
+    const dbName = 'gemma-3-27b-no-kv-taskdb';
+    const objectStoreName = 'tasks';
+    let db;
+
+    // IndexedDB への接続
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject('IndexedDB はサポートされていません');
+          return;
+        }
+
+        const request = indexedDB.open(dbName, 1);
+
+        request.onerror = () => {
+          reject('IndexedDB への接続に失敗しました');
+        };
+
+        request.onsuccess = () => {
+          db = request.result;
+          resolve();
+        };
+
+        request.onupgradeneeded = (event) => {
+          const objectStore = db.createObjectStore(objectStoreName, { keyPath: 'id', autoIncrement: true });
+          objectStore.createIndex('content', 'content', { unique: false });
+          objectStore.createIndex('status', 'status', { unique: false });
+          objectStore.createIndex('registeredDate', 'registeredDate', { unique: false });
+          objectStore.createIndex('dueDate', 'dueDate', { unique: false });
+          objectStore.createIndex('completedDate', 'completedDate', { unique: false });
+        };
+      });
+    }
+
+    // タスクの追加
+    function addTask(content, dueDate) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([objectStoreName], 'readwrite');
+        const objectStore = transaction.objectStore(objectStoreName);
+
+        const task = {
+          content: content,
+          status: '未完了',
+          registeredDate: new Date(),
+          dueDate: dueDate,
+          completedDate: null
+        };
+
+        const request = objectStore.add(task);
+
+        request.onsuccess = () => {
+          resolve();
+        };
+
+        request.onerror = () => {
+          reject('タスクの追加に失敗しました');
+        };
+      });
+    }
+
+    // タスクの取得
+    function getTasks() {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([objectStoreName], 'readonly');
+        const objectStore = transaction.objectStore(objectStoreName);
+        const request = objectStore.getAll();
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          reject('タスクの取得に失敗しました');
+        };
+      });
+    }
+
+    // タスクの更新
+    function updateTask(id, status) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([objectStoreName], 'readwrite');
+        const objectStore = transaction.objectStore(objectStoreName);
+        const request = objectStore.get(id);
+
+        request.onsuccess = () => {
+          const task = request.result;
+          if (task) {
+            task.status = status;
+            task.completedDate = status === '完了' ? new Date() : null;
+            const updateRequest = objectStore.put(task);
+
+            updateRequest.onsuccess = () => {
+              resolve();
+            };
+
+            updateRequest.onerror = () => {
+              reject('タスクの更新に失敗しました');
+            };
+          } else {
+            reject('タスクが見つかりませんでした');
+          }
+        };
+
+        request.onerror = () => {
+          reject('タスクの取得に失敗しました');
+        };
+      });
+    }
+
+    // タスクの削除
+    function deleteTask(id) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([objectStoreName], 'readwrite');
+        const objectStore = transaction.objectStore(objectStoreName);
+        const request = objectStore.delete(id);
+
+        request.onsuccess = () => {
+          resolve();
+        };
+
+        request.onerror = () => {
+          reject('タスクの削除に失敗しました');
+        };
+      });
+    }
+
+    // タスクカードの生成
+    function createTaskCard(task) {
+      const card = document.createElement('div');
+      card.classList.add('task-card');
+      card.dataset.id = task.id;
+
+      card.innerHTML = `
+        <h3>${task.content}</h3>
+        <p>登録日: ${task.registeredDate.toLocaleDateString()}</p>
+        <p>期限日: ${task.dueDate.toLocaleDateString()}</p>
+        ${task.completedDate ? `<p>完了日: ${task.completedDate.toLocaleDateString()}</p>` : ''}
+        <p>状態: ${task.status}</p>
+        <div class="task-actions">
+          <button class="toggle-status">状態変更</button>
+          <button class="delete-task">削除</button>
+        </div>
+      `;
+
+      const toggleStatusButton = card.querySelector('.toggle-status');
+      const deleteButton = card.querySelector('.delete-task');
+
+      toggleStatusButton.addEventListener('click', () => {
+        const newStatus = task.status === '未完了' ? '完了' : '未完了';
+        updateTask(task.id, newStatus)
+          .then(() => {
+            task.status = newStatus;
+            task.completedDate = newStatus === '完了' ? new Date() : null;
+            renderTaskCard(task);
+          })
+          .catch(error => {
+            console.error(error);
+            alert('状態変更に失敗しました');
+          });
+      });
+
+      deleteButton.addEventListener('click', () => {
+        deleteTask(task.id)
+          .then(() => {
+            renderTasks();
+          })
+          .catch(error => {
+            console.error(error);
+            alert('削除に失敗しました');
+          });
+      });
+
+      return card;
+    }
+
+    // タスクカードの再レンダリング
+    function renderTaskCard(task) {
+      const card = document.querySelector(`.task-card[data-id="${task.id}"]`);
+      if (card) {
+        card.innerHTML = `
+          <h3>${task.content}</h3>
+          <p>登録日: ${task.registeredDate.toLocaleDateString()}</p>
+          <p>期限日: ${task.dueDate.toLocaleDateString()}</p>
+          ${task.completedDate ? `<p>完了日: ${task.completedDate.toLocaleDateString()}</p>` : ''}
+          <p>状態: ${task.status}</p>
+          <div class="task-actions">
+            <button class="toggle-status">状態変更</button>
+            <button class="delete-task">削除</button>
+          </div>
+        `;
+        const toggleStatusButton = card.querySelector('.toggle-status');
+        const deleteButton = card.querySelector('.delete-task');
+
+        toggleStatusButton.addEventListener('click', () => {
+          const newStatus = task.status === '未完了' ? '完了' : '未完了';
+          updateTask(task.id, newStatus)
+            .then(() => {
+              task.status = newStatus;
+              task.completedDate = newStatus === '完了' ? new Date() : null;
+              renderTaskCard(task);
+            })
+            .catch(error => {
+              console.error(error);
+              alert('状態変更に失敗しました');
+            });
+        });
+
+        deleteButton.addEventListener('click', () => {
+          deleteTask(task.id)
+            .then(() => {
+              renderTasks();
+            })
+            .catch(error => {
+              console.error(error);
+              alert('削除に失敗しました');
+            });
+        });
+      }
+    }
+
+    // タスクのレンダリング
+    function renderTasks() {
+      const taskList = document.getElementById('task-list');
+      taskList.innerHTML = '';
+
+      getTasks()
+        .then(tasks => {
+          tasks.forEach(task => {
+            const card = createTaskCard(task);
+            taskList.appendChild(card);
+          });
+        })
+        .catch(error => {
+          console.error(error);
+          alert('タスクの取得に失敗しました');
+        });
+    }
+
+    // イベントリスナーの設定
+    document.addEventListener('DOMContentLoaded', () => {
+      openDB()
+        .then(() => {
+          renderTasks();
+
+          const addTaskButton = document.getElementById('add-task');
+          addTaskButton.addEventListener('click', () => {
+            const taskContent = document.getElementById('task-content').value;
+            const taskDueDate = document.getElementById('task-due-date').value;
+
+            if (taskContent && taskDueDate) {
+              addTask(taskContent, taskDueDate)
+                .then(() => {
+                  renderTasks();
+                  document.getElementById('task-content').value = '';
+                  document.getElementById('task-due-date').value = '';
+                })
+                .catch(error => {
+                  console.error(error);
+                  alert('タスクの追加に失敗しました');
+                });
+            } else {
+              alert('タスクの内容と期限日を入力してください');
+            }
+          });
+        })
+        .catch(error => {
+          console.error(error);
+          alert('IndexedDB への接続に失敗しました');
+        });
+    });
+  </script>
+
+</body>
+</html>

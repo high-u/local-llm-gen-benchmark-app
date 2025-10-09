@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理アプリケーション</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: none;
+        }
+        .card h3 {
+            margin-top: 0;
+        }
+        .card button {
+            margin-top: 10px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>タスク管理アプリケーション</h1>
+        <div class="grid">
+            <!-- タスクカードがここに追加されます -->
+        </div>
+        <div class="footer">
+            <button id="addTaskButton">新しいタスクを追加</button>
+        </div>
+    </div>
+
+    <script>
+        const dbRequest = indexedDB.open('granite-40-h-small-taskdb', 1);
+
+        dbRequest.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            db.createObjectStore('tasks', { autoIncrement: true });
+        };
+
+        dbRequest.onsuccess = (event) => {
+            const db = event.target.result;
+            loadTasks(db);
+        };
+
+        dbRequest.onerror = (event) => {
+            console.error('IndexedDB error:', event.target.errorCode);
+        };
+
+        document.getElementById('addTaskButton').addEventListener('click', () => {
+            const taskContent = prompt('タスクの内容を入力してください:');
+            if (taskContent) {
+                addTask(dbRequest.result, taskContent);
+            }
+        });
+
+        function loadTasks(db) {
+            const transaction = db.transaction(['tasks'], 'readonly');
+            const store = transaction.objectStore('tasks');
+            const request = store.getAll();
+
+            request.onsuccess = (event) => {
+                const tasks = event.target.result;
+                displayTasks(tasks);
+            };
+        }
+
+        function displayTasks(tasks) {
+            const grid = document.querySelector('.grid');
+            grid.innerHTML = '';
+
+            tasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <h3>${task.content}</h3>
+                    <p>状態: ${task.status}</p>
+                    <p>登録日: ${new Date(task.registeredDate).toLocaleDateString()}</p>
+                    <p>期限日: ${new Date(task.dueDate).toLocaleDateString()}</p>
+                    <p>完了日: ${task.completedDate ? new Date(task.completedDate).toLocaleDateString() : '未完了'}</p>
+                    <button class="completeTask" data-id="${task.id}">完了</button>
+                    <button class="deleteTask" data-id="${task.id}">削除</button>
+                `;
+                grid.appendChild(card);
+
+                const completeTaskButton = card.querySelector('.completeTask');
+                completeTaskButton.addEventListener('click', () => {
+                    completeTask(db, task.id);
+                });
+
+                const deleteTaskButton = card.querySelector('.deleteTask');
+                deleteTaskButton.addEventListener('click', () => {
+                    deleteTask(db, task.id);
+                });
+            });
+        }
+
+        function addTask(db, content) {
+            const transaction = db.transaction(['tasks'], 'readwrite');
+            const store = transaction.objectStore('tasks');
+            const task = {
+                content: content,
+                status: '未完了',
+                registeredDate: new Date().getTime(),
+                dueDate: new Date().getTime() + 7 * 24 * 60 * 60 * 1000, // 1週間後
+                completedDate: null
+            };
+            store.add(task);
+            transaction.oncomplete = () => {
+                loadTasks(db);
+            };
+        }
+
+        function completeTask(db, taskId) {
+            const transaction = db.transaction(['tasks'], 'readwrite');
+            const store = transaction.objectStore('tasks');
+            const request = store.get(taskId);
+
+            request.onsuccess = (event) => {
+                const task = event.target.result;
+                task.status = '完了';
+                task.completedDate = new Date().getTime();
+                store.put(task);
+            };
+
+            transaction.oncomplete = () => {
+                loadTasks(db);
+            };
+        }
+
+        function deleteTask(db, taskId) {
+            const transaction = db.transaction(['tasks'], 'readwrite');
+            const store = transaction.objectStore('tasks');
+            store.delete(taskId);
+            transaction.oncomplete = () => {
+                loadTasks(db);
+            };
+        }
+    </script>
+</body>
+</html>

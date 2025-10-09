@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>タスク管理アプリ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  /* 基本レイアウト */
+  body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#fff;
+    color:#333;
+    line-height:1.6;
+  }
+  .dashboard{
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  h1{
+    text-align:center;
+    margin-bottom:1.5rem;
+  }
+
+  /* フォーム */
+  #taskForm{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0.5rem;
+    margin-bottom:2rem;
+  }
+  #taskForm input[type="text"],
+  #taskForm input[type="date"]{
+    flex:1 1 200px;
+    padding:0.5rem;
+    border:1px solid #ccc;
+    background:#fafafa;
+  }
+  #taskForm button{
+    padding:0.6rem 1.2rem;
+    border:none;
+    background:#333;
+    color:#fff;
+    cursor:pointer;
+  }
+  #taskForm button:hover{
+    background:#555;
+  }
+
+  /* テーブル */
+  table{
+    width:100%;
+    border-collapse:collapse;
+  }
+  th,td{
+    padding:0.8rem;
+    text-align:left;
+    border-bottom:1px solid #ddd;
+  }
+  th{
+    background:#f0f0f0;
+  }
+  tr:nth-child(even){
+    background:#fafafa;
+  }
+  button.action{
+    padding:0.4rem 0.8rem;
+    border:none;
+    cursor:pointer;
+    font-size:0.9rem;
+  }
+  button.toggle{
+    background:#333;
+    color:#fff;
+  }
+  button.toggle.completed{
+    background:#008000;
+    color:#fff;
+  }
+  button.delete{
+    background:#c00;
+    color:#fff;
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <h1>タスク管理アプリ</h1>
+  <form id="taskForm">
+    <input type="text" id="content" placeholder="タスク内容" required>
+    <input type="date" id="dueDate">
+    <button type="submit">追加</button>
+  </form>
+  <div id="taskList"></div>
+</div>
+
+<script>
+/* ---------------------------------------------
+   IndexedDB ヘルパー
+--------------------------------------------- */
+const dbName = 'gpt-oss-20b-taskdb';
+const storeName = 'tasks';
+let db;
+
+// 開く／作成
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+    request.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        const store = db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('createdAt', 'createdAt');
+      }
+    };
+    request.onsuccess = e => resolve(e.target.result);
+    request.onerror = e => reject(e.target.error);
+  });
+}
+
+// タスク全件取得
+function getAllTasks() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const tasks = [];
+    store.openCursor().onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) {
+        tasks.push(cursor.value);
+        cursor.continue();
+      } else {
+        resolve(tasks);
+      }
+    };
+    tx.onerror = e => reject(e);
+  });
+}
+
+// タスク追加
+async function addTask(content, dueDate) {
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  const task = {
+    content: content.trim(),
+    status: 0, // 0:未完了 1:完了
+    createdAt: new Date().toISOString(),
+    dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+    completedAt: null
+  };
+  store.add(task);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+// タスク削除
+async function deleteTask(id) {
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  store.delete(id);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+// タスク状態変更
+async function toggleStatus(id) {
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  const req = store.get(id);
+  req.onsuccess = e => {
+    const task = e.target.result;
+    if (task) {
+      task.status = task.status === 0 ? 1 : 0;
+      task.completedAt = task.status === 1 ? new Date().toISOString() : null;
+      store.put(task);
+    }
+  };
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+/* ---------------------------------------------
+   UI レンダリング
+--------------------------------------------- */
+const taskListDiv = document.getElementById('taskList');
+
+// 日付フォーマット
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString();
+}
+
+// タスク一覧描画
+async function renderTasks() {
+  const tasks = await getAllTasks();
+  tasks.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr><th>内容</th><th>状態</th><th>登録日</th><th>期限日</th><th>完了日</th><th>操作</th></tr>`;
+  const tbody = document.createElement('tbody');
+
+  tasks.forEach(t=> {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${t.content}</td>
+      <td></td>
+      <td>${formatDate(t.createdAt)}</td>
+      <td>${formatDate(t.dueDate)}</td>
+      <td>${formatDate(t.completedAt)}</td>
+      <td></td>
+    `;
+
+    const statusBtn = document.createElement('button');
+    statusBtn.textContent = t.status === 0 ? '未完了' : '完了';
+    statusBtn.className = 'action toggle' + (t.status===1?' completed':'');
+    statusBtn.onclick = async () => { await toggleStatus(t.id); await renderTasks(); };
+    tr.children[1].appendChild(statusBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '削除';
+    deleteBtn.className = 'action delete';
+    deleteBtn.onclick = async () => { await deleteTask(t.id); await renderTasks(); };
+    tr.children[5].appendChild(deleteBtn);
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  taskListDiv.innerHTML = '';
+  taskListDiv.appendChild(table);
+}
+
+/* ---------------------------------------------
+   フォーム処理
+--------------------------------------------- */
+document.getElementById('taskForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const content = document.getElementById('content').value;
+  const dueDate = document.getElementById('dueDate').value;
+  if(content.trim()){
+    await addTask(content, dueDate);
+    document.getElementById('taskForm').reset();
+    await renderTasks();
+  }
+});
+
+/* ---------------------------------------------
+   初期化
+--------------------------------------------- */
+async function init() {
+  db = await openDB();
+  await renderTasks();
+}
+init();
+</script>
+</body>
+</html>

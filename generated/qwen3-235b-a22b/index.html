@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タスク管理アプリ</ combust>
+  <style>
+    /* モノクローム、グリッド、リキッドレイアウト */
+    :root {
+      --primary-color: #000;
+      --border-color: #ccc;
+      --text-color: #333;
+      --bg-color: #fff;
+      --highlight-color: #f0f0f0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    h1 {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .card {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      background-color: var(--bg-color);
+    }
+
+    .task-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .task-item {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .task-content {
+      word-break: break-word;
+    }
+
+    .task-meta {
+      font-size: 0.85em;
+      color: #666;
+    }
+
+    .task-status {
+      text-align: center;
+      font-weight: bold;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      font-size: 0.8em;
+    }
+
+    .status-pending {
+      color: #d9534f;
+      background-color: #f9f9f9;
+    }
+
+    .status-done {
+      color: #4cae4c;
+      background-color: #f0f8f0;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="date"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-delete {
+      background-color: #d9534f;
+    }
+
+    .btn-done {
+      background-color: #5cb85c;
+    }
+
+    .btn-pending {
+      background-color: #f0ad4e;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+  <title>タスク管理アプリ</title>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>タスク管理</h1>
+      <p>あなたのタスクを効率的に管理しましょう。</p>
+    </header>
+
+    <div class="dashboard">
+      <!-- タスク登録フォーム -->
+      <div class="card">
+        <h2>タスクを登録</h2>
+        <form id="task-form">
+          <div class="form-group">
+            <label for="content">タスク内容</label>
+            <input type="text" id="content" required />
+          </div>
+          <div class="form-group">
+            <label for="due-date">期限日</label>
+            <input type="date" id="due-date" />
+          </div>
+          <button type="submit">タスクを追加</button>
+        </form>
+      </div>
+
+      <!-- タスク一覧 -->
+      <div class="card">
+        <h2>タスク一覧</h2>
+        <ul id="task-list" class="task-list">
+          <!-- タスクはJavaScriptで動的に挿入 -->
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      &copy; 2023 タスク管理アプリ. すべてのタスクはローカルで保存されます。
+    </footer>
+  </div>
+
+  <script>
+    // IndexedDBの設定
+    const DB_NAME = 'qwen3-235b-a22b-taskdb';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'tasks';
+
+    let db = null;
+
+    // DBのオープンとオブジェクトストアの作成
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
+
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          }
+        };
+      });
+    }
+
+    // タスクの読み込み
+    function loadTasks() {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const tasks = [];
+      const request = store.openCursor();
+
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          const task = cursor.value;
+          tasks.push(task);
+          cursor.continue();
+        } else {
+          renderTasks(tasks);
+        }
+      };
+    }
+
+    // タスクを表示する
+    function renderTasks(tasks) {
+      const taskListEl = document.getElementById('task-list');
+      taskList.EL.innerHTML = '';
+
+      if (tasks.length === 0) {
+        taskListEl.innerHTML = '<li class="task-item">タスクがありません。</li>';
+        return;
+      }
+
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.dataset.id = task.id;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'task-content';
+        contentDiv.textContent = task.content;
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'task-meta';
+
+        const dateInfo = [];
+        if (task.createdAt) {
+          dateInfo.push(`登録: ${new Date(task.createdAt).toLocaleDateString()}`);
+        }
+        if (task.dueDate) {
+          dateInfo.push(`期限: ${new Date(task.dueDate).toLocaleDateString()}`);
+        }
+        if (task.completedAt) {
+          dateInfo.push(`完了: ${new Date(task.completedAt).toLocaleDateString()}`);
+        }
+        metaDiv.textContent = dateInfo.join(' | ');
+
+        const statusDiv = document.createElement('div');
+        const statusBtn = document.createElement('button');
+        statusBtn.textContent = task.status === 'done' ? '完了済' : '未完了';
+        statusBtn.className = task.status === 'done' ? 'btn-done' : 'btn-pending';
+        statusBtn.disabled = true;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '削除';
+        deleteBtn.className = 'btn-delete';
+        deleteBtn.onclick = () => deleteTask(task.id);
+
+        if (task.status !== 'done') {
+          const completeBtn = document.createElement('button');
+          completeBtn.textContent = '完了にする';
+          completeBtn.onclick = () => completeTask(task.id);
+          statusDiv.appendChild(completeBtn);
+        }
+
+        statusDiv.appendChild(statusBtn);
+        statusDiv.appendChild(deleteBtn);
+
+        li.appendChild(contentDiv);
+        li.appendChild(metaDiv);
+        li.appendChild(statusDiv);
+
+        taskListEl.appendChild(li);
+      });
+    }
+
+    // タスクの追加
+    function addTask(content, dueDate) {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      const task = {
+        content: content,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        dueDate: dueDate || null,
+        completedAt: null
+      };
+
+      store.add(task);
+
+      transaction.oncomplete = () => {
+        resetForm();
+        loadTasks();
+      };
+
+      transaction.onerror = () => alert('タスクの追加に失敗しました。');
+    }
+
+    // タスクの削除
+    function deleteTask(id) {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.delete(id);
+
+      transaction.oncomplete = () => {
+        loadTasks();
+      };
+    }
+
+    // タスクを完了状態に変更
+    function completeTask(id) {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => {
+        const task = request.result;
+        task.status = 'done';
+        task.completedAt = new Date().toISOString();
+        store.put(task);
+      };
+
+      transaction.oncomplete = () => {
+        loadTasks();
+      };
+    }
+
+    // フォームのリセット
+    function resetForm() {
+      document.getElementById('content').value = '';
+      document.getElementById('due-date').value = '';
+    }
+
+    // 初期化処理
+    async function init() {
+      try {
+        await openDB();
+        loadTasks();
+      } catch (error) {
+        console.error('DBの初期化に失敗:', error);
+      }
+    }
+
+    // フォーム送信イベント
+    document.getElementById('task-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const content = document.getElementById('content').value.trim();
+      const dueDate = document.getElementById('due-date').value;
+
+      if (content) {
+        addTask(content, dueDate);
+      }
+    });
+
+    // 初期化
+    init();
+  </script>
+</body>
+</html>

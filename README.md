@@ -1,34 +1,10 @@
 # README
 
-## Servers
+## GPU
 
-### on VRAM
+### Less than VRAM
 
-#### LiquidAI/LFM2-1.2B
-
-- lfm2.context_length u32 : `128,000`
-
-```bash
-llama-server -hf LiquidAI/LFM2-1.2B-GGUF:Q8_0 --jinja --ctx-size 32768
-```
-
-#### Menlo/Jan-nano
-
-- qwen3.context_length u32: `40,960`
-
-```bash
-llama-server -hf Menlo/Jan-nano-gguf:Q8_0 --jinja --ctx-size 32768
-```
-
-#### Qwen/Qwen3-4B-Instruct-2507
-
-- qwen3.context_length u32: `262,144`
-
-```bash
-llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768
-```
-
-#### zai-org/GLM-4-9B-0414
+#### 9B (1)
 
 - glm4.context_length u32: `32,768`
 
@@ -36,7 +12,7 @@ llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 327
 llama-server -hf unsloth/GLM-4-9B-0414-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
-#### nvidia/NVIDIA-Nemotron-Nano-9B-v2
+#### 9B (2)
 
 - nemotron_h.context_length u32: `1,048,576`
 
@@ -44,7 +20,7 @@ llama-server -hf unsloth/GLM-4-9B-0414-GGUF:Q8_0 --jinja --ctx-size 32768
 llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
-#### nvidia/NVIDIA-Nemotron-Nano-12B-v2
+#### 12B (1)
 
 - nemotron_h.context_length u32: `1,048,576`
 
@@ -52,7 +28,7 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:Q8_0 --jinja -
 llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q8_0 --jinja --ctx-size 32768
 ```
 
-#### google/gemma-3-12b-it
+#### 12 (2)
 
 - gemma3.context_length u32: `131,072`
 
@@ -60,7 +36,15 @@ llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-12B-v2-GGUF:Q8_0 --jinja 
 llama-server -hf unsloth/gemma-3-12b-it-GGUF:Q6_K_XL --jinja --ctx-size 32768
 ```
 
-#### Qwen/Qwen3-14B
+#### 14B
+
+PHI-4
+
+- phi3.context_length u32: `32,768`
+
+```bash
+llama-server -hf unsloth/Phi-4-reasoning-plus-GGUF:IQ4_NL --jinja --ctx-size 32768
+```
 
 - qwen3.context_length u32: `40,960`
 
@@ -68,7 +52,7 @@ llama-server -hf unsloth/gemma-3-12b-it-GGUF:Q6_K_XL --jinja --ctx-size 32768
 llama-server -hf Qwen/Qwen3-14B-GGUF:Q5_K_M --jinja --ctx-size 32768
 ```
 
-#### openai/gpt-oss-20b
+#### 20B MoE
 
 - gpt-oss.context_length u32: `13,1072`
 
@@ -76,29 +60,23 @@ llama-server -hf Qwen/Qwen3-14B-GGUF:Q5_K_M --jinja --ctx-size 32768
 llama-server -hf ggml-org/gpt-oss-20b-GGUF --jinja --ctx-size 32768
 ```
 
-#### mistralai/Magistral-Small-2509
+```bash
+llama-server -hf ggml-org/gpt-oss-20b-GGUF --jinja --ctx-size 32768 --chat-template-kwargs '{"reasoning_effort": "high"}'
+```
 
-これは除外
+#### 27B
 
-- llama.context_length u32: `131,072`
+- gemma3.context_length u32: `131,072`
 
 ```bash
-llama-server -hf unsloth/Magistral-Small-2509-GGUF:IQ4_XS --jinja --ctx-size 16384
+llama-server -hf unsloth/gemma-3-27b-it-qat-GGUF:IQ3_XXS --jinja --ctx-size 32768
 ```
 
 ```bash
-llama-server -hf mistralai/Magistral-Small-2509-GGUF:Q4_K_M --jinja --ctx-size 32768 --no-kv-offload
+llama-server -hf unsloth/gemma-3-27b-it-qat-GGUF:IQ4_XS --jinja --ctx-size 32768 --no-kv-offload
 ```
 
-#### LLM360/K2-Think
-
-これは除外
-
-```bash
-llama-server -hf mradermacher/K2-Think-i1-GGUF:IQ3_M --jinja --ctx-size 32768 --no-kv-offload
-```
-
-#### zai-org/GLM-4-32B-0414
+#### 32B
 
 - glm4.context_length u32: `32,768`
 
@@ -106,7 +84,7 @@ llama-server -hf mradermacher/K2-Think-i1-GGUF:IQ3_M --jinja --ctx-size 32768 --
 llama-server -hf bartowski/THUDM_GLM-4-32B-0414-GGUF:IQ3_M --jinja --ctx-size 32768 --no-kv-offload
 ```
 
-#### ByteDance-Seed/Seed-OSS-36B-Instruct
+#### 36B
 
 - seed_oss.context_length u32: `524,288`
 
@@ -114,28 +92,9 @@ llama-server -hf bartowski/THUDM_GLM-4-32B-0414-GGUF:IQ3_M --jinja --ctx-size 32
 llama-server -hf unsloth/Seed-OSS-36B-Instruct-GGUF:IQ3_XXS --jinja --ctx-size 32768 --no-kv-offload
 ```
 
-#### qwen3-30b-a3b-instruct-2507
+### More than VRAM
 
-- qwen3moe.context_length u32: `262,144`
-
-```bash
-llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --jinja --ctx-size 32768
-```
-
-### over VRAM (MoE)
-
-#### DavidAU/Qwen3-30B-A1.5B-High-Speed
-
-- qwen3moe.context_length u32: `65,536`
-- qwen3moe.block_count u32: `48`
-- qwen3moe.expert_used_count u32: `4`
-- qwen3moe.expert_count u32: `128`
-
-```bash
-llama-server -hf mradermacher/Qwen3-30B-A1.5B-High-Speed-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
-```
-
-#### Qwen/Qwen3-30B-A3B-Instruct-2507
+#### 30B-A3B
 
 - qwen3moe.context_length u32: `262,144`
 - qwen3moe.block_count u32: `48`
@@ -143,40 +102,20 @@ llama-server -hf mradermacher/Qwen3-30B-A1.5B-High-Speed-GGUF:Q8_0 --jinja --ctx
 - qwen3moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
+llama-server -hf unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF:IQ4_NL --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 14
 ```
 
 ```bash
-llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 12
+llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 31
 ```
 
-#### DavidAU/Qwen3-30B-A6B-16-Extreme
-
-- qwen3moe.context_length u32: `262,144`
-- qwen3moe.block_count u32: `48`
-- qwen3moe.expert_used_count u32: `16`
-- qwen3moe.expert_count u32: `128`
+#### 30B-A6B
 
 ```bash
-llama-server -hf mradermacher/Qwen3-30B-A6B-16-Extreme-GGUF:Q8_0 --jinja --ctx-size 32768 --n-cpu-moe 31
+llama-server -hf Mungert/Qwen3-30B-A6B-16-Extreme-GGUF:IQ4_NL --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 14
 ```
 
-```bash
-llama-server -hf mradermacher/Qwen3-30B-A6B-16-Extreme-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 12
-```
-
-#### meta-llama/Llama-4-Scout-17B-16E-Instruct
-
-- llama4.context_length u32: `10,485,760`
-- llama4.block_count u32: `48`
-- llama4.expert_used_count u32: `1`
-- llama4.expert_count u32: `16`
-
-```bash
-llama-server -hf unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 44
-```
-
-#### zai-org/GLM-4.5-Air
+#### 106B-A12B
 
 - glm4moe.context_length u32: `131,072`
 - glm4moe.block_count u32: `47`
@@ -184,14 +123,14 @@ llama-server -hf unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF:IQ4_XS --jinja --ct
 - glm4moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-cpu-moe 42
+llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ4_XS --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 42
 ```
 
 ```bash
-llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ2_M --jinja --ctx-size 32768 --n-cpu-moe 40
+llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ2_M --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 40
 ```
 
-#### openai/gpt-oss-120b
+#### 117B-A5.1B
 
 - gpt-oss.context_length u32: `131,072`
 - gpt-oss.block_count u32: `36`
@@ -199,10 +138,10 @@ llama-server -hf unsloth/GLM-4.5-Air-GGUF:IQ2_M --jinja --ctx-size 32768 --n-cpu
 - gpt-oss.expert_used_count u32: `4`
 
 ```bash
-llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --n-cpu-moe 29
+llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 29
 ```
 
-#### Qwen/Qwen3-235B-A22B-Instruct-2507
+#### 235B-A22B
 
 - qwen3moe.context_length u32: `262,144`
 - qwen3moe.block_count u32: `94`
@@ -210,29 +149,37 @@ llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --n-cpu-moe
 - qwen3moe.expert_count u32: `128`
 
 ```bash
-llama-server -hf Intel/Qwen3-235B-A22B-Instruct-2507-gguf-q2ks-mixed-AutoRound --jinja --ctx-size 32768 --n-cpu-moe 88
+llama-server -hf bartowski/Qwen_Qwen3-235B-A22B-Instruct-2507-GGUF:IQ2_XS --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 88
 ```
 
 ## CPU
 
 ```bash
-llama-server -hf LiquidAI/LFM2-1.2B-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf unsloth/gemma-3-270m-it-GGUF:Q8_0 --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
-llama-server -hf Menlo/Jan-nano-gguf:IQ4_XS --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf mradermacher/Luth-LFM2-1.2B-i1-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
-llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf unsloth/Qwen3-1.7B-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
-llama-server -hf unsloth/GLM-4-9B-0414-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf mradermacher/LFM2-2.6B-i1-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
-llama-server -hf bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf unsloth/Jan-nano-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+```bash
+llama-server -hf unsloth/Qwen3-4B-Instruct-2507-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+```bash
+llama-server -hf unsloth/granite-4.0-h-tiny-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
@@ -240,22 +187,30 @@ llama-server -hf ggml-org/gpt-oss-20b-GGUF --jinja --ctx-size 32768 --n-gpu-laye
 ```
 
 ```bash
-llama-server -hf Intel/Qwen3-30B-A3B-Instruct-2507-gguf-q2ks-mixed-AutoRound --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf ggml-org/gpt-oss-20b-GGUF --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6 --chat-template-kwargs '{"reasoning_effort": "low"}'
 ```
 
 ```bash
-llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:IQ4_XS --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf DavidAU/Qwen3-30B-A1.5B-64K-High-Speed-NEO-Imatrix-MAX-gguf:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6 --batch-size 512 --ubatch-size 512
 ```
 
 ```bash
-llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:IQ4_NL --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
 ```
 
 ```bash
 llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6 --chat-template-kwargs '{"reasoning_effort": "low"}'
 ```
 
-## Endpoints
+```bash
+llama-server -hf LiquidAI/LFM2-8B-A1B-GGUF:Q8_0 --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+```bash
+llama-server -hf gabriellarson/LFM2-8B-A1B-GGUF:MXFP4_MOE --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+## llama-server endpoints
 
 ```bash
 curl -s "http://localhost:8080/v1/chat/completions" \
@@ -281,12 +236,12 @@ curl -H "Content-Type: application/json" -d '{"content": "Hello LLM"}' http://lo
 curl -H 'Content-Type: application/json' -d '{"tokens":[13225,451,19641]}' http://localhost:8080/detokenize
 ```
 
-## Web UI
+## llama-server Web UI
 
 http://127.0.0.1:8080
 
 ## Download Model Files
 
 ```bash
-ls -la ~/.cache/llama.cpp/
+ls -1 ~/.cache/llama.cpp/
 ```
