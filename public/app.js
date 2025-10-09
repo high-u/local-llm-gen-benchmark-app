@@ -132,7 +132,6 @@ const sendRequest = async () => {
   isLoading.val = true;
   resetState.all();
   
-  // サンプリング用変数の初期化
   predictedSpeedSamples.val = [];
   nextSamplingInterval.val = SAMPLING_INTERVAL;
 
@@ -207,7 +206,6 @@ const sendRequest = async () => {
       }
       window.scrollTo(0, document.body.scrollHeight);
       if (json.timings) {
-        // サンプリングロジック：predicted_msが次のサンプリング間隔を超えたら記録
         if (json.timings.predicted_ms && json.timings.predicted_per_second) {
           if (json.timings.predicted_ms >= nextSamplingInterval.val) {
             const newSamples = [...predictedSpeedSamples.val, json.timings.predicted_per_second];
