@@ -105,11 +105,17 @@ const getModel = async () => {
   try {
     const fetchResponse = await fetch('http://localhost:8080/v1/models');
     const data = await fetchResponse.json();
+    console.log({data});
+
+    // 既存の形式を優先的にチェック
     if (data.models && data.models[0] && data.models[0].name) {
-      const fullPath = data.models[0].name;
-      const fileName = fullPath.split('/').pop();
-      modelName.val = fileName;
-    } else {
+      modelName.val = data.models[0].name;
+    }
+    // 新しい形式（OpenAI互換）をフォールバック
+    else if (data.data && data.data[0] && data.data[0].id) {
+      modelName.val = data.data[0].id;
+    }
+    else {
       modelName.val = '';
     }
   } catch (error) {
@@ -131,9 +137,14 @@ const sendRequest = async () => {
 
   isLoading.val = true;
   resetState.all();
-  
+
   predictedSpeedSamples.val = [];
   nextSamplingInterval.val = SAMPLING_INTERVAL;
+
+  // timingsを返さないサーバー用の計測変数
+  let clientStartTime = null;
+  let clientChunkCount = 0;
+  let clientUsageData = null;
 
   try {
     abortController.val = new AbortController();
@@ -144,6 +155,7 @@ const sendRequest = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: modelName.val,
         messages: [
           {
             role: 'user',
@@ -151,7 +163,8 @@ const sendRequest = async () => {
           }
         ],
         stream: true,
-        timings_per_token: true
+        timings_per_token: true,
+        max_tokens: 32768
       }),
       signal: abortController.val.signal
     });
@@ -213,7 +226,7 @@ const sendRequest = async () => {
             nextSamplingInterval.val += SAMPLING_INTERVAL;
           }
         }
-        
+
         const enhancedResult = {
           model: modelName.val,
           prompt: prompt.val,
@@ -221,8 +234,77 @@ const sendRequest = async () => {
           predicted_per_second_samples: predictedSpeedSamples.val
         };
         resultData.val = JSON.stringify(enhancedResult, undefined, 2);
+      } else {
+        // timingsを返さないサーバーの場合
+        const hasContent = json.choices && json.choices[0] && json.choices[0].delta &&
+                          (json.choices[0].delta.content || json.choices[0].delta.reasoning_content);
+
+        if (hasContent) {
+          if (clientStartTime === null) {
+            clientStartTime = Date.now();
+          }
+          clientChunkCount++;
+
+          // チャンクごとに計算
+          const elapsedMs = Date.now() - clientStartTime;
+          const speed = (clientChunkCount / elapsedMs) * 1000;
+          const predictedPerTokenMs = clientChunkCount > 0 ? elapsedMs / clientChunkCount : 0;
+
+          // 10秒ごとにサンプリング配列に追加
+          if (elapsedMs >= nextSamplingInterval.val) {
+            const newSamples = [...predictedSpeedSamples.val, speed];
+            predictedSpeedSamples.val = newSamples;
+            nextSamplingInterval.val += SAMPLING_INTERVAL;
+          }
+
+          // チャンクごとに表示を更新
+          const clientResult = {
+            model: modelName.val,
+            prompt: prompt.val,
+            cache_n: 0,
+            prompt_n: 0,
+            prompt_ms: 0,
+            prompt_per_token_ms: 0,
+            prompt_per_second: 0,
+            predicted_n: clientChunkCount,
+            predicted_ms: elapsedMs,
+            predicted_per_token_ms: predictedPerTokenMs,
+            predicted_per_second: speed,
+            predicted_per_second_samples: predictedSpeedSamples.val
+          };
+          resultData.val = JSON.stringify(clientResult, undefined, 2);
+        }
+
+        if (json.usage) {
+          clientUsageData = json.usage;
+        }
       }
     });
+
+    // timingsを返さないサーバーの最終結果を作成
+    if (clientStartTime !== null && clientUsageData !== null) {
+      const totalElapsedMs = Date.now() - clientStartTime;
+      const predictedN = clientUsageData.completion_tokens || 0;
+      const promptN = clientUsageData.prompt_tokens || 0;
+      const predictedPerTokenMs = predictedN > 0 ? totalElapsedMs / predictedN : 0;
+      const predictedPerSecond = totalElapsedMs > 0 ? (predictedN / totalElapsedMs) * 1000 : 0;
+
+      const clientResult = {
+        model: modelName.val,
+        prompt: prompt.val,
+        cache_n: 0,
+        prompt_n: promptN,
+        prompt_ms: 0,
+        prompt_per_token_ms: 0,
+        prompt_per_second: 0,
+        predicted_n: predictedN,
+        predicted_ms: totalElapsedMs,
+        predicted_per_token_ms: predictedPerTokenMs,
+        predicted_per_second: predictedPerSecond,
+        predicted_per_second_samples: predictedSpeedSamples.val
+      };
+      resultData.val = JSON.stringify(clientResult, undefined, 2);
+    }
   } catch (error) {
     errorMessage.val = `Error: ${error.message}`;
   } finally {
