@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスクマネージャー</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        #taskForm {
+            display: grid;
+            gap: 10px;
+            background: white;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        #taskForm textarea {
+            width: 100%;
+            height: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        #taskForm input[type="date"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #taskForm button {
+            padding: 8px 16px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #taskForm button:hover {
+            background-color: #f0f0f0;
+        }
+
+        #tasksContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .task-card {
+            background: white;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+
+        .task-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .task-status {
+            margin: 10px 0;
+        }
+
+        .task-status input {
+            margin-right: 5px;
+        }
+
+        .task-status label {
+            color: #666;
+        }
+
+        .task-dates {
+            color: #888;
+            font-size: 0.9em;
+            margin: 10px 0 0 0;
+        }
+
+        .task-actions {
+            margin-top: 15px;
+        }
+
+        .task-actions button {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .task-actions button:hover {
+            background-color: #f5f5f5;
+        }
+
+        .task-actions .delete {
+            background-color: #fafafa;
+            border-color: #ddd;
+            color: #666;
+        }
+
+        .task-actions .delete:hover {
+            background-color: #f0f0f0;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>タスクマネージャー</h1>
+        <form id="taskForm">
+            <textarea id="taskContent" placeholder="タスク内容を入力..." required></textarea>
+            <input type="date" id="dueDate">
+            <button type="submit">追加</button>
+        </form>
+        <div id="tasksContainer"></div>
+    </div>
+
+    <script>
+        const DB_NAME = 'taskDB';
+        const DB_VERSION = 1;
+        const TASK_STORE = 'tasks';
+        let db;
+
+        // Initialize IndexedDB
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = function(e) {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(TASK_STORE)) {
+                        db.createObjectStore(TASK_STORE, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = function() {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onerror = function(e) {
+                    reject(e.target.error);
+                };
+            });
+        }
+
+        // Initialize app
+        async function init() {
+            try {
+                await openDB();
+                await loadTasks();
+            } catch (err) {
+                console.error('DBエラー:', err);
+            }
+        }
+
+        // Load and render tasks
+        async function loadTasks() {
+            const tasks = await getAllTasks();
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '';
+            tasks.forEach(task => {
+                const card = createTaskCard(task);
+                container.appendChild(card);
+            });
+        }
+
+        // Get all tasks sorted
+        async function getAllTasks() {
+            const tx = db.transaction(TASK_STORE, 'readonly');
+            const store = tx.objectStore(TASK_STORE);
+            const request = store.getAll();
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const tasks = request.result;
+                    tasks.sort((a, b) => {
+                        const aDue = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31');
+                        const bDue = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
+                        if (aDue > bDue) return 1;
+                        if (aDue < bDue) return -1;
+                        if (a.status === 'incomplete' && b.status === 'complete') return -1;
+                        if (a.status === 'complete' && b.status === 'incomplete') return 1;
+                        return 0;
+                    });
+                    resolve(tasks);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Create task card element
+        function createTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+
+            // Content
+            const contentDiv = document.createElement('h3');
+            contentDiv.className = task.status === 'complete' ? 'completed' : '';
+            contentDiv.textContent = task.content;
+
+            // Status checkbox
+            const statusContainer = document.createElement('div');
+            statusContainer.className = 'task-status';
+            const statusCheckbox = document.createElement('input');
+            statusCheckbox.type = 'checkbox';
+            statusCheckbox.checked = task.status === 'complete';
+            statusCheckbox.id = `task-status-${task.id}`;
+            statusCheckbox.addEventListener('change', async (e) => {
+                const newStatus = e.target.checked;
+                const newCompletedAt = newStatus ? new Date() : null;
+                const updatedTask = {
+                    ...task,
+                    status: newStatus ? 'complete' : 'incomplete',
+                    completedAt: newCompletedAt
+                };
+                await updateTask(updatedTask);
+                await loadTasks();
+            });
+
+            const statusLabel = document.createElement('label');
+            statusLabel.textContent = ' 完了';
+            statusLabel.htmlFor = `task-status-${task.id}`;
+            statusContainer.appendChild(statusCheckbox);
+            statusContainer.appendChild(statusLabel);
+
+            // Dates
+            const datesDiv = document.createElement('div');
+            datesDiv.className = 'task-dates';
+            const createdAt = new Date(task.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            datesDiv.innerHTML = `作成日: ${createdAt}`;
+            if (task.dueDate) {
+                const dueDate = new Date(task.dueDate).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                datesDiv.innerHTML += ` | 期限: ${dueDate}`;
+            }
+            if (task.completedAt) {
+                const completedAt = new Date(task.completedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                datesDiv.innerHTML += ` | 完了日: ${completedAt}`;
+            }
+
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'task-actions';
+            // Delete button
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete';
+            deleteButton.textContent = '削除';
+            deleteButton.addEventListener('click', async () => {
+                await deleteTask(task.id);
+                await loadTasks();
+            });
+            actionsDiv.appendChild(deleteButton);
+
+            // Assemble card
+            card.appendChild(contentDiv);
+            card.appendChild(statusContainer);
+            card.appendChild(datesDiv);
+            card.appendChild(actionsDiv);
+            return card;
+        }
+
+        // Add new task
+        async function addTask(taskData) {
+            const tx = db.transaction(TASK_STORE, 'readwrite');
+            const store = tx.objectStore(TASK_STORE);
+            const newTask = {
+                id: Date.now(),
+                content: taskData.content,
+                status: 'incomplete',
+                createdAt: new Date(),
+                dueDate: taskData.dueDate || null,
+                completedAt: null
+            };
+            store.add(newTask);
+            await tx.complete;
+            return newTask;
+        }
+
+        // Update existing task
+        async function updateTask(task) {
+            const tx = db.transaction(TASK_STORE, 'readwrite');
+            const store = tx.objectStore(TASK_STORE);
+            store.put(task);
+            await tx.complete;
+        }
+
+        // Delete task
+        async function deleteTask(id) {
+            const tx = db.transaction(TASK_STORE, 'readwrite');
+            const store = tx.objectStore(TASK_STORE);
+            store.delete(id);
+            await tx.complete;
+        }
+
+        // Event listeners
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = document.getElementById('taskContent').value.trim();
+            const dueDate = document.getElementById('dueDate').value;
+            if (!content) return;
+
+            await addTask({ content, dueDate });
+            document.getElementById('taskContent').value = '';
+            document.getElementById('dueDate').value = '';
+            await loadTasks();
+        });
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

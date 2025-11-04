@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>タスク管理アプリケーション</title>
+  <style>
+    /* Reset & base */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      background: #f2f2f2;
+      color: #111;
+      line-height: 1.4;
+    }
+    img, svg { vertical-align: middle; }
+
+    /* Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid-3 {
+      grid-template-columns: 1fr 3fr;
+    }
+    @media (max-width: 900px) {
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    header.app-header {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 16px;
+    }
+    header h1 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat .label {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .stat .value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .sidebar {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 16px;
+    }
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+    }
+
+    /* Forms */
+    .form-row {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    label {
+      font-size: 12px;
+      color: #333;
+    }
+    input[type="text"], input[type="date"], select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      background: #fff;
+      color: #111;
+      font-size: 14px;
+    }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus {
+      outline: 1px solid #333;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      border: 1px solid #111;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      text-align: center;
+    }
+    .btn.secondary {
+      background: #fff;
+      color: #111;
+      border: 1px solid #111;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Filters */
+    .filters {
+      display: grid;
+      gap: 8px;
+    }
+    .filter-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 480px) {
+      .filter-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Task list */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .task-list {
+      display: grid;
+      gap: 12px;
+    }
+    .task-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+    }
+    .task-content {
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .task-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      font-size: 12px;
+      color: #333;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border: 1px solid #111;
+      background: #fff;
+      color: #111;
+      font-size: 12px;
+    }
+    .badge.completed {
+      background: #111;
+      color: #fff;
+    }
+    .task-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: #555;
+      border: 1px dashed #bbb;
+      background: #fff;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0);
+      white-space: nowrap; border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="app-header grid">
+      <div>
+        <h1>タスク管理ダッシュボード</h1>
+        <div class="stats" id="stats">
+          <div class="stat">
+            <div class="label">総タスク数</div>
+            <div class="value" id="stat-total">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">未完了</div>
+            <div class="value" id="stat-incomplete">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">完了</div>
+            <div class="value" id="stat-complete">0</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid grid-3" style="margin-top:16px;">
+      <aside class="sidebar">
+        <section class="panel">
+          <h2>新しいタスク</h2>
+          <form id="task-form" autocomplete="off">
+            <div class="form-row">
+              <label for="content">内容</label>
+              <input id="content" name="content" type="text" placeholder="タスクの内容を入力" required />
+            </div>
+            <div class="form-row">
+              <label for="dueDate">期限日</label>
+              <input id="dueDate" name="dueDate" type="date" />
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn">登録</button>
+              <button type="reset" class="btn secondary">クリア</button>
+            </div>
+            <div id="form-msg" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:#333;"></div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>フィルター</h2>
+          <div class="filters">
+            <div class="filter-row">
+              <div>
+                <label for="statusFilter">状態</label>
+                <select id="statusFilter" name="statusFilter">
+                  <option value="all">すべて</option>
+                  <option value="incomplete">未完了</option>
+                  <option value="complete">完了</option>
+                </select>
+              </div>
+              <div>
+                <label for="sortOrder">並び順</label>
+                <select id="sortOrder" name="sortOrder">
+                  <option value="new">新しい順</option>
+                  <option value="old">古い順</option>
+                  <option value="due">期限が近い順</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="search">検索（内容）</label>
+              <input id="search" name="search" type="text" placeholder="キーワードで検索" />
+            </div>
+            <div class="actions">
+              <button id="clearFilters" class="btn secondary" type="button">フィルターをクリア</button>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel">
+        <div class="list-header">
+          <div>
+            表示: <span id="visible-count">0</span> 件
+          </div>
+          <div>
+            <button id="deleteAllComplete" class="btn secondary" type="button">完了済みタスクを削除</button>
+          </div>
+        </div>
+        <div id="task-list" class="task-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // IndexedDB configuration
+    const DB_NAME = 'TaskManagerDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'tasks';
+
+    let dbPromise = null;
+
+    function openDB() {
+      if (dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onupgradeneeded = (event) => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('status', 'status', { unique: false });
+            store.createIndex('registeredAt', 'registeredAt', { unique: false });
+            store.createIndex('dueDate', 'dueDate', { unique: false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+      });
+      return dbPromise;
+    }
+
+    function withStore(mode, callback) {
+      return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, mode);
+        const store = tx.objectStore(STORE_NAME);
+        const result = callback(store);
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      }));
+    }
+
+    function addTask({ content, dueDate }) {
+      const now = new Date();
+      const task = {
+        content: content.trim(),
+        status: 'incomplete',
+        registeredAt: now.toISOString(),
+        dueDate: dueDate || null,
+        completedAt: null
+      };
+      return withStore('readwrite', store => store.add(task));
+    }
+
+    function updateTask(task) {
+      return withStore('readwrite', store => store.put(task));
+    }
+
+    function deleteTask(id) {
+      return withStore('readwrite', store => store.delete(id));
+    }
+
+    function deleteTasksByStatus(status) {
+      return withStore('readwrite', store => {
+        const idx = store.index('status');
+        const req = idx.openCursor(IDBKeyRange.only(status));
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          }
+        };
+        return req;
+      });
+    }
+
+    function getAllTasks() {
+      return withStore('readonly', store => {
+        return new Promise((resolve, reject) => {
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      });
+    }
+
+    // UI helpers
+    function formatDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '—';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    function escapeHTML(str) {
+      return String(str).replace(/[&<>"']/g, s => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[s]));
+    }
+
+    // State
+    const state = {
+      tasks: [],
+      filterStatus: 'all',   // all | incomplete | complete
+      sortOrder: 'new',      // new | old | due
+      search: ''
+    };
+
+    // Elements
+    const el = {
+      form: document.getElementById('task-form'),
+      content: document.getElementById('content'),
+      dueDate: document.getElementById('dueDate'),
+      formMsg: document.getElementById('form-msg'),
+      statusFilter: document.getElementById('statusFilter'),
+      sortOrder: document.getElementById('sortOrder'),
+      search: document.getElementById('search'),
+      clearFilters: document.getElementById('clearFilters'),
+      deleteAllComplete: document.getElementById('deleteAllComplete'),
+      list: document.getElementById('task-list'),
+      statTotal: document.getElementById('stat-total'),
+      statIncomplete: document.getElementById('stat-incomplete'),
+      statComplete: document.getElementById('stat-complete'),
+      visibleCount: document.getElementById('visible-count'),
+    };
+
+    function setMsg(msg, timeout = 2000) {
+      el.formMsg.textContent = msg || '';
+      if (msg) {
+        setTimeout(() => {
+          if (el.formMsg.textContent === msg) el.formMsg.textContent = '';
+        }, timeout);
+      }
+    }
+
+    function compareTasks(a, b) {
+      if (state.sortOrder === 'new') {
+        return (b.registeredAt || '').localeCompare(a.registeredAt || '');
+      } else if (state.sortOrder === 'old') {
+        return (a.registeredAt || '').localeCompare(b.registeredAt || '');
+      } else if (state.sortOrder === 'due') {
+        const ad = a.dueDate || '9999-12-31';
+        const bd = b.dueDate || '9999-12-31';
+        const cmp = ad.localeCompare(bd);
+        if (cmp !== 0) return cmp;
+        return (b.registeredAt || '').localeCompare(a.registeredAt || '');
+      }
+      return 0;
+    }
+
+    function passesFilter(t) {
+      if (state.filterStatus !== 'all' && t.status !== state.filterStatus) return false;
+      if (state.search) {
+        const q = state.search.toLowerCase();
+        if (!t.content.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }
+
+    function renderTasks() {
+      const tasks = state.tasks.slice().filter(passesFilter).sort(compareTasks);
+      el.list.innerHTML = '';
+      if (tasks.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'タスクがありません。';
+        el.list.appendChild(empty);
+      } else {
+        for (const t of tasks) {
+          el.list.appendChild(renderTaskCard(t));
+        }
+      }
+      el.visibleCount.textContent = String(tasks.length);
+    }
+
+    function renderTaskCard(task) {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.dataset.id = String(task.id);
+
+      const top = document.createElement('div');
+      top.className = 'task-top';
+
+      const content = document.createElement('div');
+      content.className = 'task-content';
+      content.textContent = task.content;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge' + (task.status === 'complete' ? ' completed' : '');
+      badge.textContent = task.status === 'complete' ? '完了' : '未完了';
+
+      top.appendChild(content);
+      top.appendChild(badge);
+
+      const meta = document.createElement('div');
+      meta.className = 'task-meta';
+      meta.innerHTML = `
+        <div>登録日: ${escapeHTML(formatDate(task.registeredAt))}</div>
+        <div>期限日: ${escapeHTML(formatDate(task.dueDate))}</div>
+        <div>完了日: ${escapeHTML(formatDate(task.completedAt))}</div>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'task-actions';
+      const btnToggle = document.createElement('button');
+      btnToggle.type = 'button';
+      btnToggle.className = 'btn';
+      btnToggle.textContent = task.status === 'complete' ? '未完了にする' : '完了にする';
+      btnToggle.dataset.action = 'toggle';
+
+      const btnDelete = document.createElement('button');
+      btnDelete.type = 'button';
+      btnDelete.className = 'btn secondary';
+      btnDelete.textContent = '削除';
+      btnDelete.dataset.action = 'delete';
+
+      actions.appendChild(btnToggle);
+      actions.appendChild(btnDelete);
+
+      card.appendChild(top);
+      card.appendChild(meta);
+      card.appendChild(actions);
+      return card;
+    }
+
+    function updateStats(tasks) {
+      const total = tasks.length;
+      const complete = tasks.filter(t => t.status === 'complete').length;
+      const incomplete = total - complete;
+      el.statTotal.textContent = String(total);
+      el.statIncomplete.textContent = String(incomplete);
+      el.statComplete.textContent = String(complete);
+    }
+
+    async function refreshData() {
+      const tasks = await getAllTasks();
+      state.tasks = tasks;
+      updateStats(tasks);
+      renderTasks();
+    }
+
+    // Event handlers
+    el.form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = el.content.value.trim();
+      const dueDate = el.dueDate.value || null;
+      if (!content) {
+        setMsg('内容を入力してください。');
+        el.content.focus();
+        return;
+      }
+      el.form.querySelector('button[type="submit"]').disabled = true;
+      try {
+        await addTask({ content, dueDate });
+        setMsg('タスクを登録しました。');
+        el.form.reset();
+        await refreshData();
+      } catch (err) {
+        console.error(err);
+        setMsg('タスクの登録に失敗しました。');
+      } finally {
+        el.form.querySelector('button[type="submit"]').disabled = false;
+      }
+    });
+
+    el.statusFilter.addEventListener('change', () => {
+      state.filterStatus = el.statusFilter.value;
+      renderTasks();
+    });
+    el.sortOrder.addEventListener('change', () => {
+      state.sortOrder = el.sortOrder.value;
+      renderTasks();
+    });
+    el.search.addEventListener('input', () => {
+      state.search = el.search.value.trim();
+      renderTasks();
+    });
+    el.clearFilters.addEventListener('click', () => {
+      state.filterStatus = 'all';
+      state.sortOrder = 'new';
+      state.search = '';
+      el.statusFilter.value = 'all';
+      el.sortOrder.value = 'new';
+      el.search.value = '';
+      renderTasks();
+    });
+
+    el.deleteAllComplete.addEventListener('click', async () => {
+      const ok = confirm('完了済みのタスクをすべて削除します。よろしいですか？');
+      if (!ok) return;
+      try {
+        await deleteTasksByStatus('complete');
+        await refreshData();
+      } catch (err) {
+        console.error(err);
+        alert('削除に失敗しました。');
+      }
+    });
+
+    el.list.addEventListener('click', async (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.dataset.action;
+      if (!action) return;
+
+      const card = target.closest('.task-card');
+      if (!card) return;
+      const id = Number(card.dataset.id);
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+
+      if (action === 'toggle') {
+        if (task.status === 'incomplete') {
+          task.status = 'complete';
+          task.completedAt = new Date().toISOString();
+        } else {
+          task.status = 'incomplete';
+          task.completedAt = null;
+        }
+        try {
+          await updateTask(task);
+          await refreshData();
+        } catch (err) {
+          console.error(err);
+          alert('状態の更新に失敗しました。');
+        }
+      } else if (action === 'delete') {
+        const ok = confirm('このタスクを削除します。よろしいですか？');
+        if (!ok) return;
+        try {
+          await deleteTask(id);
+          await refreshData();
+        } catch (err) {
+          console.error(err);
+          alert('削除に失敗しました。');
+        }
+      }
+    });
+
+    // Initialize
+    (async function init() {
+      try {
+        await openDB();
+        await refreshData();
+      } catch (err) {
+        console.error('IndexedDBの初期化に失敗しました:', err);
+        el.list.innerHTML = '<div class="empty">データベースの初期化に失敗しました。IndexedDBが利用可能か確認してください。</div>';
+      }
+    })();
+  </script>
+</body>
+</html>
