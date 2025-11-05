@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>タスク管理アプリ</title>
+  <style>
+    /* Monochrome, no animations, no shadows, grid/liquid layout */
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+      --muted: #6b6b6b;
+      --line: #e5e5e5;
+      --soft: #f7f7f7;
+      --accent: #222222;
+      --accent-weak: #444444;
+      --ok: #2f2f2f;
+      --danger: #2b2b2b;
+      --radius: 6px;
+      --space: 12px;
+      --maxw: 1200px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, "Noto Sans JP", Arial, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+
+    .container {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
+    }
+    header .inner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--space);
+      align-items: center;
+      padding-block: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      background: var(--soft);
+    }
+    .filters input[type="radio"] {
+      accent-color: var(--accent);
+    }
+
+    main {
+      padding-block: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 900px) {
+      .grid {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+    .card .card-header {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-weight: 600;
+      background: var(--soft);
+    }
+    .card .card-body {
+      padding: 12px;
+    }
+
+    form#add-form .field {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    label span.req {
+      color: var(--muted);
+      font-weight: 400;
+      margin-left: 4px;
+      font-size: 12px;
+    }
+    input[type="text"], input[type="date"], textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg);
+      color: var(--fg);
+      outline: none;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      background: var(--soft);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+    tbody tr:hover {
+      background: #fafafa;
+    }
+    .col-id { width: 64px; }
+    .col-content { width: 45%; }
+    .col-status { width: 120px; }
+    .col-dates { width: 240px; }
+    .col-actions { width: 160px; text-align: right; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-weak);
+      color: var(--accent);
+      background: #f1f1f1;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.muted {
+      color: var(--muted);
+      border-color: var(--line);
+      background: #fafafa;
+    }
+
+    .muted { color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+    .empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--soft);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .toolbar .count {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status-toggle {
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .status-toggle.completed {
+      border-color: var(--ok);
+      color: var(--ok);
+    }
+    .delete {
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      background: transparent;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 12px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container inner">
+      <h1>タスク管理ダッシュボード</h1>
+      <div class="filters" role="radiogroup" aria-label="表示フィルター">
+        <label><input type="radio" name="filter" value="all" checked /> すべて</label>
+        <label><input type="radio" name="filter" value="pending" /> 未完了</label>
+        <label><input type="radio" name="filter" value="completed" /> 完了</label>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <section class="card" aria-labelledby="add-title">
+        <div class="card-header" id="add-title">新しいタスクを追加</div>
+        <div class="card-body">
+          <form id="add-form" autocomplete="off">
+            <div class="field">
+              <label for="content">内容<span class="req">（必須）</span></label>
+              <textarea id="content" name="content" required maxlength="500" placeholder="タスクの内容を入力"></textarea>
+            </div>
+            <div class="field">
+              <label for="dueDate">期限日</label>
+              <input type="date" id="dueDate" name="dueDate" />
+            </div>
+            <div class="actions">
+              <button type="submit" id="add-btn">追加</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <div class="card-header" id="list-title">タスク一覧</div>
+        <div class="card-body">
+          <div class="toolbar">
+            <div class="count" id="count">0 件</div>
+            <div class="muted">登録日・期限日・完了日ともローカル時刻で表示</div>
+          </div>
+          <div class="table-wrap">
+            <table id="task-table" aria-describedby="list-title">
+              <thead>
+                <tr>
+                  <th class="col-id">ID</th>
+                  <th class="col-content">内容</th>
+                  <th class="col-status">状態</th>
+                  <th class="col-dates">登録日 / 期限日 / 完了日</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody id="task-tbody">
+                <!-- rows -->
+              </tbody>
+            </table>
+            <div id="empty" class="empty" hidden>タスクがありません。 左のフォームから追加してください。</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">© タスク管理アプリ</div>
+  </footer>
+
+  <script>
+    // IndexedDB wrapper
+    const DB_NAME = 'minimax-m2-02-taskdb';
+    const DB_VERSION = 1;
+    const STORE = 'tasks';
+    let db;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            const store = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('status', 'status', { unique: false });
+            store.createIndex('createdAt', 'createdAt', { unique: false });
+            store.createIndex('dueDate', 'dueDate', { unique: false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function withStore(mode, callback) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, mode);
+        const store = tx.objectStore(STORE);
+        const res = callback(store);
+        tx.oncomplete = () => resolve(res);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    }
+
+    async function addTask(task) {
+      return withStore('readwrite', (store) => store.add(task));
+    }
+
+    async function updateTask(task) {
+      return withStore('readwrite', (store) => store.put(task));
+    }
+
+    async function deleteTask(id) {
+      return withStore('readwrite', (store) => store.delete(id));
+    }
+
+    async function getAllTasks() {
+      return withStore('readonly', (store) => {
+        return new Promise((resolve, reject) => {
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      });
+    }
+
+    // Helpers
+    function toLocal(dt) {
+      if (!dt) return '';
+      const d = (dt instanceof Date) ? dt : new Date(dt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${day} ${hh}:${mm}`;
+    }
+    function toLocalDateOnly(dt) {
+      if (!dt) return '';
+      const d = (dt instanceof Date) ? dt : new Date(dt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // State
+    let tasksCache = [];
+    let currentFilter = 'all'; // all | pending | completed
+
+    // UI elements
+    const tbody = document.getElementById('task-tbody');
+    const emptyEl = document.getElementById('empty');
+    const countEl = document.getElementById('count');
+    const form = document.getElementById('add-form');
+    const contentEl = document.getElementById('content');
+    const dueDateEl = document.getElementById('dueDate');
+    const addBtn = document.getElementById('add-btn');
+    const filterRadios = document.querySelectorAll('input[name="filter"]');
+
+    // Rendering
+    function render() {
+      const filtered = tasksCache.filter(t => {
+        if (currentFilter === 'pending') return t.status === 'pending';
+        if (currentFilter === 'completed') return t.status === 'completed';
+        return true;
+      });
+
+      // Sort: pending first, then by createdAt desc
+      filtered.sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+        return (new Date(b.createdAt)) - (new Date(a.createdAt));
+      });
+
+      tbody.innerHTML = '';
+      if (filtered.length === 0) {
+        emptyEl.hidden = false;
+      } else {
+        emptyEl.hidden = true;
+        const frag = document.createDocumentFragment();
+        for (const t of filtered) {
+          frag.appendChild(renderRow(t));
+        }
+        tbody.appendChild(frag);
+      }
+      countEl.textContent = `${tasksCache.length} 件`;
+    }
+
+    function renderRow(task) {
+      const tr = document.createElement('tr');
+      tr.dataset.id = String(task.id);
+
+      const tdId = document.createElement('td');
+      tdId.className = 'col-id';
+      tdId.textContent = String(task.id);
+
+      const tdContent = document.createElement('td');
+      tdContent.className = 'col-content';
+      tdContent.textContent = task.content || '';
+
+      const tdStatus = document.createElement('td');
+      tdStatus.className = 'col-status';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (task.status === 'completed' ? '' : 'muted');
+      badge.textContent = task.status === 'completed' ? '完了' : '未完了';
+      tdStatus.appendChild(badge);
+
+      const tdDates = document.createElement('td');
+      tdDates.className = 'col-dates';
+      const created = document.createElement('div');
+      created.innerHTML = `<span class="muted">登録:</span> ${toLocal(task.createdAt)}`;
+      const due = document.createElement('div');
+      due.innerHTML = `<span class="muted">期限:</span> ${task.dueDate ? toLocalDateOnly(task.dueDate) : '—'}`;
+      const completed = document.createElement('div');
+      completed.innerHTML = `<span class="muted">完了:</span> ${task.completedAt ? toLocal(task.completedAt) : '—'}`;
+      tdDates.appendChild(created);
+      tdDates.appendChild(due);
+      tdDates.appendChild(completed);
+
+      const tdActions = document.createElement('td');
+      tdActions.className = 'col-actions';
+      const toggle = document.createElement('button');
+      toggle.className = 'status-toggle';
+      toggle.type = 'button';
+      toggle.textContent = task.status === 'completed' ? '未完了に戻す' : '完了にする';
+      if (task.status === 'completed') toggle.classList.add('completed');
+
+      const del = document.createElement('button');
+      del.className = 'delete';
+      del.type = 'button';
+      del.textContent = '削除';
+
+      tdActions.appendChild(toggle);
+      tdActions.appendChild(del);
+
+      tr.appendChild(tdId);
+      tr.appendChild(tdContent);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdDates);
+      tr.appendChild(tdActions);
+      return tr;
+    }
+
+    async function refresh() {
+      tasksCache = await getAllTasks();
+      render();
+    }
+
+    // Event handlers
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = (contentEl.value || '').trim();
+      const dueStr = dueDateEl.value;
+      if (!content) {
+        contentEl.focus();
+        return;
+      }
+      const now = new Date();
+      const dueDate = dueStr ? new Date(dueStr + 'T23:59:59') : null;
+
+      const task = {
+        content,
+        status: 'pending',
+        createdAt: now.toISOString(),
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        completedAt: null
+      };
+
+      addBtn.disabled = true;
+      try {
+        await addTask(task);
+        form.reset();
+        await refresh();
+        contentEl.focus();
+      } catch (err) {
+        console.error(err);
+        alert('タスクの追加に失敗しました。');
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
+
+    tbody.addEventListener('click', async (e) => {
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      const id = Number(tr.dataset.id);
+      const task = tasksCache.find(t => t.id === id);
+      if (!task) return;
+
+      if (e.target.classList.contains('status-toggle')) {
+        const now = new Date();
+        if (task.status === 'pending') {
+          task.status = 'completed';
+          task.completedAt = now.toISOString();
+        } else {
+          task.status = 'pending';
+          task.completedAt = null;
+        }
+        try {
+          await updateTask(task);
+          await refresh();
+        } catch (err) {
+          console.error(err);
+          alert('状態の更新に失敗しました。');
+        }
+      }
+
+      if (e.target.classList.contains('delete')) {
+        if (!confirm(`タスク #${task.id} を削除しますか？`)) return;
+        try {
+          await deleteTask(id);
+          await refresh();
+        } catch (err) {
+          console.error(err);
+          alert('削除に失敗しました。');
+        }
+      }
+    });
+
+    filterRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        if (r.checked) {
+          currentFilter = r.value;
+          render();
+        }
+      });
+    });
+
+    // Init
+    (async function init() {
+      try {
+        db = await openDB();
+        await refresh();
+      } catch (err) {
+        console.error(err);
+        alert('IndexedDBの初期化に失敗しました。このブラウザはIndexedDBをサポートしていない可能性があります。');
+      }
+    })();
+  </script>
+</body>
+</html>
