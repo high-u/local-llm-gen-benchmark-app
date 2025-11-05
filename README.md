@@ -94,6 +94,15 @@ llama-server -hf unsloth/Seed-OSS-36B-Instruct-GGUF:IQ3_XXS --jinja --ctx-size 3
 
 ### More than VRAM
 
+#### 16B-A1.4B
+
+```bash
+# https://github.com/im0qianqian/llama.cpp
+llama-server -hf inclusionAI/Ring-mini-2.0-GGUF:Q8_0 --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 20
+
+# llama-server -hf inclusionAI/Ling-mini-2.0-GGUF:Q8_0 --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 14
+```
+
 #### 30B-A3B
 
 - qwen3moe.context_length u32: `262,144`
@@ -113,6 +122,15 @@ llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-siz
 
 ```bash
 llama-server -hf Mungert/Qwen3-30B-A6B-16-Extreme-GGUF:IQ4_NL --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 14
+```
+
+#### 103B-A6.1B
+
+```bash
+# https://github.com/im0qianqian/llama.cpp
+llama-server -hf inclusionAI/Ring-flash-2.0-GGUF:Q4_K_M --jinja --ctx-size 32768  --threads 6 --n-cpu-moe 27
+
+# llama-server -hf inclusionAI/Ling-flash-2.0-GGUF:Q4_K_M --jinja --ctx-size 32768  --threads 6 --n-cpu-moe 27
 ```
 
 #### 106B-A12B
@@ -208,6 +226,19 @@ llama-server -hf LiquidAI/LFM2-8B-A1B-GGUF:Q8_0 --jinja --ctx-size 32768 --n-gpu
 
 ```bash
 llama-server -hf gabriellarson/LFM2-8B-A1B-GGUF:MXFP4_MOE --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+```bash
+# # https://github.com/im0qianqian/llama.cpp
+llama-server -hf inclusionAI/Ring-mini-2.0-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+
+# llama-server -hf inclusionAI/Ling-mini-2.0-GGUF:Q4_K_M --jinja --ctx-size 32768 --n-gpu-layers 0 --device none --no-op-offload --mlock --threads 6
+```
+
+```bash
+# https://github.com/ztxz16/fastllm
+# 
+ftllm server "/home/high-u/.cache/modelscope/hub/models/huangyuyang/Qwen3-Next-80B-A3B-Instruct-UD-Q4_K_M" --port 8080 --threads 6 --moe_experts 10
 ```
 
 ## llama-server endpoints
