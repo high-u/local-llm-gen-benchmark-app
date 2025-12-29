@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理ダッシュボード</title>
+    <style>
+        /* 
+           UI/UX Style Guide
+           - Monochrome
+           - No Shadows
+           - No Animations
+           - Liquid Layout (Responsive)
+           - Grid System
+        */
+
+        :root {
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #dddddd;
+            --accent-color: #4a4a4a;
+            --btn-bg: #333333;
+            --btn-text: #ffffff;
+            --btn-hover: #555555;
+            --status-pending-bg: #eeeeee;
+            --status-completed-bg: #e0e0e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            max-width: 1200px;
+            margin: 0 auto 30px auto;
+            border-bottom: 2px solid var(--text-primary);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Input Section */
+        .input-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            flex: 1 1 200px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            flex: 1 1 100%;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        input, textarea {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            font-size: 1rem;
+            color: var(--text-primary);
+            background: #fff;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background-color: var(--btn-hover);
+        }
+
+        /* Task Grid Section */
+        .task-list-section {
+            width: 100%;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Task Card */
+        .task-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: none; /* No animation */
+        }
+
+        .task-header {
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .task-content {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+
+        .task-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 1px solid var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .status-pending {
+            background-color: var(--status-pending-bg);
+        }
+
+        .status-completed {
+            background-color: var(--status-completed-bg);
+            text-decoration: line-through;
+        }
+
+        .task-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+
+        .btn-danger {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #333;
+        }
+
+        .btn-danger:hover {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .empty-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            border: 1px dashed var(--border-color);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>タスク管理ダッシュボード</h1>
+        </header>
+
+        <!-- タスク登録エリア -->
+        <section class="input-section">
+            <div class="form-group full-width">
+                <label for="taskContent">タスク内容</label>
+                <textarea id="taskContent" placeholder="やること記述してください"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="dueDate">期限日</label>
+                <input type="date" id="dueDate">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto;">
+                <button onclick="addTask()">タスク登録</button>
+            </div>
+        </section>
+
+        <!-- タスク一覧エリア -->
+        <section class="task-list-section">
+            <div id="taskGrid" class="grid-container">
+                <!-- タスクカードがここに挿入されます -->
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // IndexedDB 設定
+        const DB_NAME = 'TaskManagerDB-mmm21';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'tasks';
+        let db;
+
+        // アプリケーション初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            initDB();
+        });
+
+        // データベースの初期化
+        function initDB() {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onerror = (event) => {
+                console.error("Database error: ", event.target.error);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                // タスク用のオブジェクトストアを作成 (IDは自動インクリメント)
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    // ステータスによるインデックス作成（将来の発展のため）
+                    objectStore.createIndex('status', 'status', { unique: false });
+                }
+            };
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                loadTasks();
+            };
+        }
+
+        // タスクの追加
+        function addTask() {
+            const contentInput = document.getElementById('taskContent');
+            const dueDateInput = document.getElementById('dueDate');
+            
+            const content = contentInput.value.trim();
+            const dueDate = dueDateInput.value;
+
+            if (!content) {
+                alert("タスク内容を入力してください。");
+                return;
+            }
+
+            const newTask = {
+                content: content,
+                status: 'pending', // 初期状態: 未完了
+                createdDate: new Date().toISOString(),
+                dueDate: dueDate ? dueDate : null,
+                completionDate: null
+            };
+
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            const request = store.add(newTask);
+
+            request.onsuccess = () => {
+                contentInput.value = '';
+                dueDateInput.value = '';
+                loadTasks();
+            };
+
+            request.onerror = (event) => {
+                console.error("Error adding task: ", event.target.error);
+            };
+        }
+
+        // タスクの全件取得と表示
+        function loadTasks() {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            
+            // 全件取得
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const tasks = request.result;
+                // 登録日降順でソート（新しいものが上）
+                tasks.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+                renderTasks(tasks);
+            };
+        }
+
+        // タスク情報の表示
+        function renderTasks(tasks) {
+            const grid = document.getElementById('taskGrid');
+            grid.innerHTML = '';
+
+            if (tasks.length === 0) {
+                grid.innerHTML = '<div class="empty-message">タスクがありません。</div>';
+                return;
+            }
+
+            tasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+
+                // 日付のフォーマット
+                const createdStr = formatDate(task.createdDate);
+                const dueStr = task.dueDate ? formatDate(task.dueDate) : '設定なし';
+                const completedStr = task.completionDate ? formatDate(task.completionDate) : '-';
+
+                // クラス名の決定
+                const statusClass = task.status === 'completed' ? 'status-completed' : 'status-pending';
+                const statusText = task.status === 'completed' ? '完了' : '未完了';
+
+                card.innerHTML = `
+                    <div>
+                        <div class="task-header">
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="task-content">${escapeHtml(task.content)}</div>
+                        <div class="task-meta">
+                            <div>登録日: ${createdStr}</div>
+                            <div>期限日: ${dueStr}</div>
+                            <div>完了日: ${completedStr}</div>
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn-small" onclick="toggleStatus(${task.id}, '${task.status}')">
+                            ${task.status === 'completed' ? '未完了に戻す' : '完了にする'}
+                        </button>
+                        <button class="btn-small btn-danger" onclick="deleteTask(${task.id})">削除</button>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // タスクの状態変更（完了/未完了）
+        function toggleStatus(id, currentStatus) {
+            const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            // まず取得
+            const request = store.get(id);
+
+            request.onsuccess = () => {
+                const task = request.result;
+                task.status = newStatus;
+                
+                if (newStatus === 'completed') {
+                    task.completionDate = new Date().toISOString();
+                } else {
+                    task.completionDate = null;
+                }
+
+                // 更新
+                const updateRequest = store.put(task);
+                updateRequest.onsuccess = () => {
+                    loadTasks();
+                };
+            };
+        }
+
+        // タスクの削除
+        function deleteTask(id) {
+            if (!confirm('このタスクを削除してもよろしいですか？')) {
+                return;
+            }
+
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(id);
+
+            request.onsuccess = () => {
+                loadTasks();
+            };
+
+            request.onerror = () => {
+                console.error("Delete failed");
+            };
+        }
+
+        // 日付フォーマット関数 (YYYY-MM-DD)
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            // タイムゾーンを考慮しない簡易的な表示 (ローカルタイム)
+            const year = date.getFullYear();
+            const month = ('0' + (date.getMonth() + 1)).slice(-2);
+            const day = ('0' + date.getDate()).slice(-2);
+            return `${year}-${month}-${day}`;
+        }
+
+        // XSS対策のためのエスケープ処理
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+</html>

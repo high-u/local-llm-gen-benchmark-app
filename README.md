@@ -124,6 +124,17 @@ llama-server -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --jinja --ctx-siz
 llama-server -hf Mungert/Qwen3-30B-A6B-16-Extreme-GGUF:IQ4_NL --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 14
 ```
 
+#### 80B-A3B
+
+- qwen3next.context_length u32: `262,144`
+- qwen3next.block_count u32: `48`
+- qwen3next.expert_count u32: `512`
+- qwen3next.expert_used_count u32: `10`
+
+```bash
+llama-server -hf Qwen/Qwen3-Next-80B-A3B-Instruct-GGUF:Q4_K_M --jinja --threads 6 --n-cpu-moe 36 --ctx-size 32768
+```
+
 #### 103B-A6.1B
 
 ```bash
@@ -168,6 +179,17 @@ llama-server -hf ggml-org/gpt-oss-120b-GGUF --jinja --ctx-size 32768 --threads 6
 
 ```bash
 llama-server -hf bartowski/Qwen_Qwen3-235B-A22B-Instruct-2507-GGUF:IQ2_XS --jinja --ctx-size 32768 --threads 6 --n-cpu-moe 88
+```
+
+#### 229B-A10B
+
+- minimax-m2.context_length u32: `196,608`
+- minimax-m2.block_count u32: `62`
+- minimax-m2.expert_count u32: `256`
+- minimax-m2.expert_used_count u32: `8`
+
+```bash
+./llama-server -hf unsloth/MiniMax-M2.1-GGUF:Q3_K_XL --jinja --threads 6 --n-cpu-moe 60 --ctx-size 32768
 ```
 
 ## CPU

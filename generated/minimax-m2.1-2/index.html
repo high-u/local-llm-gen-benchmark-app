@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理ダッシュボード</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #222;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-card .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #222;
+        }
+
+        .stat-card .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-section {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 25px;
+            height: fit-content;
+        }
+
+        .input-section h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            background-color: #fafafa;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid #333;
+            background-color: #333;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #555;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: #333;
+        }
+
+        .btn-outline:hover {
+            background-color: #f0f0f0;
+        }
+
+        .task-section {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 25px;
+        }
+
+        .task-section h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-tab {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-tab.active {
+            background-color: #333;
+            color: #fff;
+            border-color: #333;
+        }
+
+        .filter-tab:hover:not(.active) {
+            background-color: #f0f0f0;
+        }
+
+        .task-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .task-card {
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .task-card:hover {
+            border-color: #999;
+        }
+
+        .task-card.completed {
+            background-color: #fafafa;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .task-content {
+            font-size: 16px;
+            font-weight: 500;
+            color: #222;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .task-card.completed .task-content {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid;
+            white-space: nowrap;
+        }
+
+        .status-badge.incomplete {
+            color: #666;
+            border-color: #ccc;
+        }
+
+        .status-badge.completed {
+            color: #333;
+            border-color: #333;
+        }
+
+        .task-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .task-meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .task-meta-item .label {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            border-color: #999;
+            color: #666;
+        }
+
+        .btn-danger:hover {
+            background-color: #f5f5f5;
+            border-color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background-color: #333;
+            color: #fff;
+            font-size: 14px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>タスク管理ダッシュボード</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-number" id="total-count">0</div>
+                <div class="stat-label">総タスク数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="incomplete-count">0</div>
+                <div class="stat-label">未完了</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completed-count">0</div>
+                <div class="stat-label">完了済み</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="overdue-count">0</div>
+                <div class="stat-label">期限超過</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <h2>新規タスク登録</h2>
+                <form id="task-form">
+                    <div class="form-group">
+                        <label for="task-content">タスク内容</label>
+                        <textarea id="task-content" placeholder="実行するタスクを入力してください" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-deadline">期限日</label>
+                        <input type="date" id="task-deadline" required>
+                    </div>
+                    <button type="submit" class="btn btn-block">タスクを追加</button>
+                </form>
+            </div>
+
+            <div class="task-section">
+                <h2>
+                    タスク一覧
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">すべて</button>
+                        <button class="filter-tab" data-filter="incomplete">未完了</button>
+                        <button class="filter-tab" data-filter="completed">完了済み</button>
+                    </div>
+                </h2>
+                <div class="task-list" id="task-list">
+                    <!-- タスクカードがここに挿入されます -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>タスク編集</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-form">
+                    <input type="hidden" id="edit-task-id">
+                    <div class="form-group">
+                        <label for="edit-task-content">タスク内容</label>
+                        <textarea id="edit-task-content" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-task-deadline">期限日</label>
+                        <input type="date" id="edit-task-deadline" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="modal-cancel">キャンセル</button>
+                <button class="btn" id="modal-save">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // IndexedDBデータベースの初期化
+        const DB_NAME = 'TaskManagerDB-mmm21-2';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'tasks';
+        let db;
+
+        // データベース接続の確立
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = (event) => {
+                    console.error('データベース接続エラー:', event.target.error);
+                    reject(event.target.error);
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    
+                    if (!database.objectStoreNames.contains(STORE_NAME)) {
+                        const objectStore = database.createObjectStore(STORE_NAME, {
+                            keyPath: 'id',
+                            autoIncrement: true
+                        });
+                        
+                        objectStore.createIndex('status', 'status', { unique: false });
+                        objectStore.createIndex('createdAt', 'createdAt', { unique: false });
+                        objectStore.createIndex('deadline', 'deadline', { unique: false });
+                    }
+                };
+            });
+        }
+
+        // データベース操作の汎用関数
+        function dbOperation(mode, storeName, operation) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], mode);
+                const store = transaction.objectStore(storeName);
+                const request = operation(store);
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 全タスクの取得
+        function getAllTasks() {
+            return dbOperation('readonly', STORE_NAME, (store) => {
+                return store.getAll();
+            });
+        }
+
+        // タスクの追加
+        function addTask(task) {
+            const newTask = {
+                content: task.content,
+                deadline: task.deadline,
+                status: 'incomplete',
+                createdAt: new Date().toISOString(),
+                completedAt: null
+            };
+            return dbOperation('readwrite', STORE_NAME, (store) => {
+                return store.add(newTask);
+            });
+        }
+
+        // タスクの更新
+        function updateTask(task) {
+            return dbOperation('readwrite', STORE_NAME, (store) => {
+                return store.put(task);
+            });
+        }
+
+        // タスクの削除
+        function deleteTask(id) {
+            return dbOperation('readwrite', STORE_NAME, (store) => {
+                return store.delete(id);
+            });
+        }
+
+        // タスクIDによる取得
+        function getTaskById(id) {
+            return dbOperation('readonly', STORE_NAME, (store) => {
+                return store.get(id);
+            });
+        }
+
+        // 日付フォーマット関数
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // 期限超過のチェック
+        function isOverdue(deadline, status) {
+            if (status === 'completed') return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const deadlineDate = new Date(deadline);
+            return deadlineDate < today;
+        }
+
+        // 通知表示
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 統計情報の更新
+        async function updateStats() {
+            const tasks = await getAllTasks();
+            
+            const total = tasks.length;
+            const incomplete = tasks.filter(t => t.status === 'incomplete').length;
+            const completed = tasks.filter(t => t.status === 'completed').length;
+            const overdue = tasks.filter(t => isOverdue(t.deadline, t.status)).length;
+
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('incomplete-count').textContent = incomplete;
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('overdue-count').textContent = overdue;
+        }
+
+        // タスク一覧の再描画
+        async function renderTasks(filter = 'all') {
+            const tasks = await getAllTasks();
+            const taskList = document.getElementById('task-list');
+            
+            let filteredTasks = tasks;
+            if (filter === 'incomplete') {
+                filteredTasks = tasks.filter(t => t.status === 'incomplete');
+            } else if (filter === 'completed') {
+                filteredTasks = tasks.filter(t => t.status === 'completed');
+            }
+
+            // 期限日でソート（期限が近い順）
+            filteredTasks.sort((a, b) => {
+                if (a.status === 'completed' && b.status !== 'completed') return 1;
+                if (a.status !== 'completed' && b.status === 'completed') return -1;
+                return new Date(a.deadline) - new Date(b.deadline);
+            });
+
+            if (filteredTasks.length === 0) {
+                taskList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>タスクがありません</p>
+                    </div>
+                `;
+                return;
+            }
+
+            taskList.innerHTML = filteredTasks.map(task => {
+                const overdue = isOverdue(task.deadline, task.status);
+                return `
+                    <div class="task-card ${task.status}" data-id="${task.id}">
+                        <div class="task-header">
+                            <div class="task-content">${escapeHtml(task.content)}</div>
+                            <span class="status-badge ${task.status}">
+                                ${task.status === 'completed' ? '完了済み' : '未完了'}
+                            </span>
+                        </div>
+                        <div class="task-meta">
+                            <div class="task-meta-item">
+                                <span class="label">登録日</span>
+                                <span>${formatDate(task.createdAt)}</span>
+                            </div>
+                            <div class="task-meta-item">
+                                <span class="label">期限日</span>
+                                <span style="color: ${overdue ? '#c00' : '#666'}">${formatDate(task.deadline)} ${overdue ? '(期限超過)' : ''}</span>
+                            </div>
+                            ${task.status === 'completed' ? `
+                                <div class="task-meta-item">
+                                    <span class="label">完了日</span>
+                                    <span>${formatDate(task.completedAt)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="task-actions">
+                            ${task.status === 'incomplete' ? `
+                                <button class="btn btn-small" onclick="completeTask(${task.id})">完了にする</button>
+                            ` : `
+                                <button class="btn btn-small btn-outline" onclick="incompleteTask(${task.id})">未完了に戻す</button>
+                            `}
+                            <button class="btn btn-small btn-outline" onclick="openEditModal(${task.id})">編集</button>
+                            <button class="btn btn-small btn-danger" onclick="removeTask(${task.id})">削除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // HTMLエスケープ関数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // タスク完了処理
+        async function completeTask(id) {
+            const task = await getTaskById(id);
+            if (task) {
+                task.status = 'completed';
+                task.completedAt = new Date().toISOString();
+                await updateTask(task);
+                await updateStats();
+                await renderTasks();
+                showNotification('タスクを完了にしました');
+            }
+        }
+
+        // タスク未完了に戻す処理
+        async function incompleteTask(id) {
+            const task = await getTaskById(id);
+            if (task) {
+                task.status = 'incomplete';
+                task.completedAt = null;
+                await updateTask(task);
+                await updateStats();
+                await renderTasks();
+                showNotification('タスクを未完了に戻しました');
+            }
+        }
+
+        // タスク削除処理
+        async function removeTask(id) {
+            if (confirm('このタスクを削除してもよろしいですか？')) {
+                await deleteTask(id);
+                await updateStats();
+                await renderTasks();
+                showNotification('タスクを削除しました');
+            }
+        }
+
+        // 編集モーダルを開く
+        async function openEditModal(id) {
+            const task = await getTaskById(id);
+            if (task) {
+                document.getElementById('edit-task-id').value = task.id;
+                document.getElementById('edit-task-content').value = task.content;
+                document.getElementById('edit-task-deadline').value = task.deadline;
+                document.getElementById('edit-modal').classList.add('active');
+            }
+        }
+
+        // 編集モーダルを閉じる
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.remove('active');
+            document.getElementById('edit-form').reset();
+        }
+
+        // タスク編集の保存
+        async function saveEditTask() {
+            const id = parseInt(document.getElementById('edit-task-id').value);
+            const content = document.getElementById('edit-task-content').value;
+            const deadline = document.getElementById('edit-task-deadline').value;
+
+            if (!content || !deadline) {
+                showNotification('すべての項目を入力してください');
+                return;
+            }
+
+            const task = await getTaskById(id);
+            if (task) {
+                task.content = content;
+                task.deadline = deadline;
+                await updateTask(task);
+                closeEditModal();
+                await updateStats();
+                await renderTasks();
+                showNotification('タスクを更新しました');
+            }
+        }
+
+        // フォームの初期化
+        function initForms() {
+            // 新規タスク登録フォーム
+            document.getElementById('task-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const content = document.getElementById('task-content').value;
+                const deadline = document.getElementById('task-deadline').value;
+
+                if (!content || !deadline) {
+                    showNotification('すべての項目を入力してください');
+                    return;
+                }
+
+                await addTask({ content, deadline });
+                document.getElementById('task-form').reset();
+                
+                // 期限日の最小値を今日に設定
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('task-deadline').min = today;
+                
+                await updateStats();
+                await renderTasks();
+                showNotification('タスクを追加しました');
+            });
+
+            // 編集モーダルの操作
+            document.getElementById('modal-close').addEventListener('click', closeEditModal);
+            document.getElementById('modal-cancel').addEventListener('click', closeEditModal);
+            document.getElementById('modal-save').addEventListener('click', saveEditTask);
+            
+            document.getElementById('edit-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('edit-modal')) {
+                    closeEditModal();
+                }
+            });
+
+            // キーボードエスケープでモーダルを閉じる
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeEditModal();
+                }
+            });
+        }
+
+        // フィルタータブの初期化
+        function initFilters() {
+            const filterTabs = document.querySelectorAll('.filter-tab');
+            filterTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    filterTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderTasks(tab.dataset.filter);
+                });
+            });
+        }
+
+        // 初期化処理
+        async function init() {
+            try {
+                await initDatabase();
+                initForms();
+                initFilters();
+                
+                // 期限日の最小値を今日に設定
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('task-deadline').min = today;
+                
+                await updateStats();
+                await renderTasks();
+            } catch (error) {
+                console.error('初期化エラー:', error);
+                showNotification('エラーが発生しました。ページを更新してください。');
+            }
+        }
+
+        // ページ読み込み時に初期化を実行
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
